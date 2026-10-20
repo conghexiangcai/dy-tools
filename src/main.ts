@@ -4,6 +4,7 @@ import {pathToFileURL} from 'node:url';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {Store} from './store';
 import {LoginState} from './login-state';
+import {guardExternalLaunches} from './navigation-guard';
 import {BrowserHost,DouyinTransport,appURL} from './browser';
 import {Collector} from './collector';
 import {cleanIds,User,accountPrivacy} from './domain';
@@ -28,6 +29,7 @@ import {ActivityService} from './activity-service';
 import {GroupManager} from './group-manager';
 import {OrganizationUI} from './organization-ui';
 protocol.registerSchemesAsPrivileged([{scheme:'app',privileges:{standard:true,secure:true,supportFetchAPI:true}}]);
+guardExternalLaunches(app);
 const customDir=process.argv.find(v=>v.startsWith('--data-dir='))?.slice(11);
 app.setName('DouyinFollowingReview');if(customDir)app.setPath('userData',path.resolve(customDir));
 let dashboard:BrowserWindow,store:Store,collector:Collector,transport:DouyinTransport,loginHost:BrowserHost,reviewHost:BrowserHost;
@@ -123,8 +125,6 @@ if(!app.requestSingleInstanceLock()){app.quit()}else{
   app.whenReady().then(async()=>{
     protocol.handle('app',req=>{const url=new URL(req.url);const allowed=new Set(['session-status.js','index.html','style.css','renderer.js','rules.js','browser.html','browser.js','group-button.html','profile-private.html','group-dialog.html','group.css','group.js','fanclub.html','fanclub.css','fanclub.js','toolbox.html','toolbox.css','toolbox.js','chat.html','chat.css','chat.js','checkin.html','checkin.css','checkin.js','organization.html','organization.css','organization.js']);const name=url.pathname.slice(1);if(url.hostname!=='local'||!allowed.has(name))return new Response('Not found',{status:404});return net.fetch(pathToFileURL(path.join(publicDir,name)).href);});
     const userDir=app.getPath('userData');mkdirSync(userDir,{recursive:true});store=new Store(path.join(userDir,'review.sqlite'));
-    session.fromPartition('persist:douyin-login').setPermissionRequestHandler((_wc,permission,done)=>done(permission==='fullscreen'));
-    session.fromPartition('persist:douyin-login').setPermissionCheckHandler((_wc,permission)=>permission==='fullscreen');
     const preload=path.join(__dirname,'preload.js');
     loginHost=new BrowserHost('collector',preload,send);reviewHost=new BrowserHost('review',preload,send);loginState=new LoginState(broadcast,user=>{if(store.owner()&&store.owner()!==user.uid)pauseForIdentity();store.activate(user.uid,user.nickname)});transport=new DouyinTransport(loginHost,loginState);collector=new Collector(store,transport,broadcast);
     groups=new GroupService(store,new DouyinGroupWire(session.fromPartition('persist:douyin-login'),transport),broadcast);

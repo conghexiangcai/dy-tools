@@ -17,7 +17,8 @@
     "smoke:chat": "node scripts/chat-smoke.cjs",
     "smoke:checkin": "node scripts/checkin-smoke.cjs",
     "smoke:organization": "node scripts/organization-smoke.cjs",
-    "smoke:fixes": "node scripts/fixes-smoke.cjs"
+    "smoke:fixes": "node scripts/fixes-smoke.cjs",
+    "smoke:navigation": "node scripts/navigation-smoke.cjs"
   },
   "devDependencies": {
     "@types/node": "24.19.0",

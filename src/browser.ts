@@ -4,6 +4,7 @@ import {Transport,SELF,FOLLOWING,PROFILE,POSTS,baseParams,pageRequest,checkPageR
 import {User,cleanUser} from './domain';
 import {parseAccountSearch} from './account-search';
 import {LoginState} from './login-state';
+import {protectNavigation} from './navigation-guard';
 const delay=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 export const appURL='app://local/';
 export function allowedRemote(url:string){try{const u=new URL(url);return u.protocol==='https:'&&['douyin.com','iesdouyin.com','bytedance.com','snssdk.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false}}
@@ -24,12 +25,11 @@ export class BrowserHost {
     if(existing){this.select(id);this.show();return existing.view.webContents;}
     const view=new WebContentsView({webPreferences:{partition:'persist:douyin-login',contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
     this.tabs.push({id,title,view});this.window.contentView.addChildView(view);this.select(id);
-    const wc=view.webContents;wc.setWindowOpenHandler(({url})=>{if(allowedRemote(url))void this.add(url,'抖音页面',String(Date.now())).catch(()=>{});return {action:'deny'};});
+    const wc=view.webContents;protectNavigation(wc);wc.setWindowOpenHandler(({url})=>{if(allowedRemote(url))void this.add(url,'抖音页面',String(Date.now())).catch(()=>{});return {action:'deny'};});
     wc.on('did-start-navigation',(_e,_url,_inPlace,isMain)=>{if(isMain){this.contextChanged();this.notify(this)}});
     wc.on('did-navigate-in-page',(_e,_url,isMain)=>{if(isMain){this.contextChanged();this.notify(this)}});
     wc.on('did-stop-loading',()=>this.notify(this));
     wc.on('will-navigate',(e,url)=>{if(!allowedRemote(url))e.preventDefault()});wc.on('will-redirect',(e,url)=>{if(!allowedRemote(url))e.preventDefault()});
-    wc.on('will-frame-navigate',e=>{try{if(!['https:','about:','blob:','data:'].includes(new URL(e.url).protocol))e.preventDefault()}catch{e.preventDefault()}});
     wc.on('page-title-updated',(_,title)=>{const t=this.tabs.find(t=>t.id===id);if(t)t.title=title.slice(0,80);this.notify(this)});
     wc.on('render-process-gone',()=>{this.onChange();});
     try{await wc.loadURL(url)}catch{if(wc.isDestroyed())throw Error('抖音窗口已关闭')}
