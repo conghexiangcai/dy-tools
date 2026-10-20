@@ -18,6 +18,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS review_meta(owner_uid TEXT PRIMARY KEY,settings TEXT DEFAULT '{}',last_batch TEXT DEFAULT '[]');
       CREATE TABLE IF NOT EXISTS history(owner_uid TEXT NOT NULL,uid TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(owner_uid,uid));`);
     if(!(this.db.prepare('PRAGMA table_info(profiles)').all() as any[]).some(c=>c.name==='videos_done'))this.db.exec('ALTER TABLE profiles ADD COLUMN videos_done INTEGER NOT NULL DEFAULT 0');
+    this.db.exec("UPDATE runs SET phase='videos',status='paused',message='已有详情保留，点击继续补齐最新视频时间' WHERE status='completed' AND id!='seed-v3' AND id IN (SELECT active_run FROM accounts) AND EXISTS (SELECT 1 FROM profiles p WHERE p.run_id=runs.id AND p.done=1 AND p.videos_done=0)");
     this.db.prepare("UPDATE runs SET status='paused',message='上次任务中断，点击继续恢复' WHERE status IN ('running','cooldown')").run();
   }
   transaction<T>(fn:()=>T):T{this.db.exec('BEGIN IMMEDIATE');try{const r=fn();this.db.exec('COMMIT');return r;}catch(e){this.db.exec('ROLLBACK');throw e;}}

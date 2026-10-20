@@ -76,6 +76,10 @@ test('新任务重新采集，断点仅跳过本任务成功项，记录导入�
   assert.deepEqual(s.getReview().selected,['1','2']);assert.deepEqual(s.getReview().opened,['1','2']);assert.equal(s.getReview().settings.fans,'123');
   assert.throws(()=>s.importReview('100',{account_uid:'200'}),/另一个/);
 });
+test('已完成的旧任务升级后只补视频时间，不丢详情或使用记录',t=>{
+ const f=fixture(t),s=f.store,r=s.createRun('100',1);s.addPage(r.id,[user('1')],{offset:1,max_time:0,pages:1},true);s.saveRow(r.id,makeRow(user('1'),profile(user('1'),7)));s.update(r.id,{status:'completed'});s.reviewDelta('100',{opened:['1'],select:{ids:['1'],value:true}});
+ const upgraded=f.reopen();assert.equal(upgraded.latest()!.phase,'videos');assert.equal(upgraded.latest()!.status,'paused');assert.equal(upgraded.nextUser(r.id),null);assert.equal(upgraded.nextVideos(r.id)?.row.works_count,7);assert.deepEqual(upgraded.getReview().opened,['1']);assert.deepEqual(upgraded.getReview().selected,['1']);
+});
 test('真实分页协议、重复账号去重和正常完成',async t=>{
   const {store:s}=fixture(t),calls:any[]=[];
   const c=new Collector(s,fake({following:async(_owner,offset,time)=>{calls.push([offset,time]);return offset===0?{users:[user('1')],more:true,min_time:123}:{users:[user('1'),user('2')],more:false,min_time:0}}}),()=>{},async()=>{});

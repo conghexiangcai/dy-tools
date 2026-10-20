@@ -69,7 +69,7 @@ async function reload(){
   }catch(e){error(e.message)}finally{loading=false;if(loadAgain){loadAgain=false;setTimeout(reload,100)}}
 }
 function renderTask(t){
-  task=t||{};const r=task.run,p=task.progress||{completed:0,total:0,videos:0};const words={running:r?.phase==='following'?'正在读取关注列表':r?.phase==='videos'?'正在读取视频发布时间':'正在读取主页详情',paused:'已暂停',waiting_login:'等待登录',waiting_verification:'等待手动验证',cooldown:'验证后等待 '+(task.countdown||0)+' 秒',error:'已暂停，等待重试',completed:'采集完成'};
+  task=t||{};const r=task.run,p=task.progress||{completed:0,total:0,videos:0};const words={running:r?.phase==='following'?'正在读取关注列表':r?.phase==='videos'?'正在读取视频发布时间':'正在读取主页详情',paused:'已暂停',waiting_login:'等待登录',waiting_verification:'等待手动验证',cooldown:'验证后等待 '+(task.countdown||0)+' 秒',error:'已暂停，等待重试',completed:r?.id==='seed-v3'?'已导入原名单，视频时间待更新':'采集完成'};
   const sec=task.etaSeconds,minutes=Math.ceil(sec/60),eta=sec===null||sec===undefined?'':` · 预计剩余 ${minutes<60?minutes+' 分钟':Math.floor(minutes/60)+' 小时 '+minutes%60+' 分钟'}（不含暂停与验证）`;
   $('task-status').textContent=(r?`${words[r.status]||r.status} · ${r.phase==='following'?p.total+' 个账号，'+r.pages+' 页':'详情 '+p.completed+' / '+p.total+' · 视频时间 '+(p.videos||0)+' / '+p.total} · ${r.message||''}`:'尚未开始更新，先登录抖音并检查连接')+eta+(task.notice?' · '+task.notice:'');
   $('progress').max=Math.max(1,p.total*2);$('progress').value=p.completed+(p.videos||0);$('refresh').disabled=!!task.busy;$('connect').disabled=!!task.busy;$('pause').disabled=!task.busy;$('resume').disabled=!!task.busy||!r||r.status==='completed';$('verified').hidden=!['waiting_verification','cooldown'].includes(r?.status);$('verified').disabled=!!task.busy;
@@ -85,3 +85,4 @@ for(const id of ids)$(id).addEventListener(['search','fans','fans-min','works-li
 $('reset').onclick=()=>{setSettings(defaults);apply();write({settings:settings()})};
 desktop.onChange(e=>{if(e.task)renderTask({...e.task,notice:e.notice});if(e.version)reload()});
 setSettings(defaults);reload();desktop.call('state').then(renderTask).catch(e=>error(e.message));
+let calendarDay=Math.floor((Date.now()+28800000)/86400000);setInterval(()=>{const next=Math.floor((Date.now()+28800000)/86400000);if(next!==calendarDay){calendarDay=next;apply(false)}},60000);
