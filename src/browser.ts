@@ -1,7 +1,7 @@
 import {BrowserWindow,WebContentsView,session,WebContents} from 'electron';
 import path from 'node:path';
 import {Transport,SELF,FOLLOWING,PROFILE,POSTS,baseParams,pageRequest,checkPageResult,parseOwner,parseFollowing,parseVideos,CollectError} from './transport';
-import {User} from './domain';
+import {User,cleanUser} from './domain';
 const delay=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 export const appURL='app://local/';
 export function allowedRemote(url:string){try{const u=new URL(url);return u.protocol==='https:'&&['douyin.com','iesdouyin.com','bytedance.com','snssdk.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false}}
@@ -25,6 +25,7 @@ export class BrowserHost {
     wc.on('did-start-navigation',(_e,_url,_inPlace,isMain)=>{if(isMain)this.contextChanged()});
     wc.on('did-navigate-in-page',(_e,_url,isMain)=>{if(isMain)this.contextChanged()});
     wc.on('will-navigate',(e,url)=>{if(!allowedRemote(url))e.preventDefault()});wc.on('will-redirect',(e,url)=>{if(!allowedRemote(url))e.preventDefault()});
+    wc.on('will-frame-navigate',e=>{try{if(!['https:','about:','blob:','data:'].includes(new URL(e.url).protocol))e.preventDefault()}catch{e.preventDefault()}});
     wc.on('page-title-updated',(_,title)=>{const t=this.tabs.find(t=>t.id===id);if(t)t.title=title.slice(0,80);this.notify(this)});
     wc.on('render-process-gone',()=>{this.onChange();});
     try{await wc.loadURL(url)}catch{if(wc.isDestroyed())throw Error('抖音窗口已关闭')}
@@ -53,6 +54,7 @@ export class DouyinTransport implements Transport {
   async owner(){if(await this.challenge())throw new CollectError('CAPTCHA','需要先完成抖音验证');return parseOwner(await this.request(SELF));}
   async following(owner:User,offset:number,time:number){return parseFollowing(await this.request(FOLLOWING,{user_id:owner.uid,sec_user_id:owner.sec_uid,offset:String(offset),max_time:String(time),count:'20'}));}
   async profile(user:User){const data=await this.request(PROFILE,{sec_user_id:user.sec_uid});if(!data.user||String(data.user.uid)!==user.uid)throw new CollectError('SCHEMA','详情接口身份不匹配');return data.user;}
+  async resolveSec(sec:string){const data=await this.request(PROFILE,{sec_user_id:sec});let u:User;try{u=cleanUser(data.user)}catch{throw new CollectError('SCHEMA','主页接口未返回完整账号身份')}if(u.sec_uid!==sec)throw new CollectError('IDENTITY','主页账号身份与输入不符');return u}
   async videos(user:User,cursor:number){
     const page=parseVideos(await this.request(POSTS,{sec_user_id:user.sec_uid,max_cursor:String(cursor),count:'20'}),user);
     if(!page.valid&&!page.videos.length&&await this.challenge(user))throw new CollectError('CAPTCHA','需要手动完成验证码');

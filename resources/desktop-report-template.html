@@ -201,4 +201,6 @@ $('reset').onclick=()=>{setSettings(defaults);apply();write({settings:settings()
 desktop.onChange(e=>{if(e.task)renderTask({...e.task,notice:e.notice,groups:e.groups});if(e.groups)renderGroups(e.groups);if(e.version)reload()});
 setSettings(defaults);reload();desktop.call('state').then(renderTask).catch(e=>error(e.message));
 let calendarDay=Math.floor((Date.now()+28800000)/86400000);setInterval(()=>{const next=Math.floor((Date.now()+28800000)/86400000);if(next!==calendarDay){calendarDay=next;apply(false)}},60000);
+
+if($('fan-open'))$('fan-open').onclick=()=>act('fanOpen');
 </script></body></html>

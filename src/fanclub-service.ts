@@ -1,0 +1,57 @@
+import {randomUUID} from 'node:crypto';
+import {FanAnchor,FanRun,FanUser,fanFailure,fanHonor,fanInput,fanRelation,fanUser} from './fanclub';
+import {FanStore} from './fanclub-store';
+import {CollectError} from './transport';
+export interface FanConnection {resolve(raw:string):Promise<{user:FanUser;data:any}>;read(params:Record<string,string>):Promise<any>;assert():Promise<void>}
+export interface FanWire {connect(owner:string):Promise<FanConnection>;challenge(target?:FanUser,navigate?:boolean):Promise<boolean>;show():void}
+const sleep=(ms:number)=>new Promise<void>(r=>setTimeout(r,ms));
+export class FanService {
+  busy=false;countdown=0;private stopped=false;private resolved:{owner:string;user:FanUser}|null=null;private previewRevision=0;
+  private pending:{owner:string;raw:string;anchor:boolean;status:'waiting_login'|'waiting_verification';message:string}|null=null;
+  constructor(public store:FanStore,public wire:FanWire,private owner:()=>string,private changed:()=>void,private delay=sleep){}
+  state(){const owner=this.owner();return {owner,anchors:this.store.anchors(owner),run:this.store.latest(owner),target:this.resolved?.owner===owner?this.resolved.user:null,pending:this.pending?.owner===owner?{status:this.pending.status,message:this.pending.message}:null,busy:this.busy,countdown:this.countdown}}
+  private requireOwner(){const o=this.owner();if(!o)throw Error('请先登录抖音并连接账号');return o}
+  private check(owner:string){if(this.owner()!==owner)throw new CollectError('ACCOUNT_CHANGED','登录账号已切换，旧查询结果不再写入');if(this.stopped)throw new CollectError('PAUSED','已暂停，可继续查询')}
+  async resolve(raw:string,anchor=false){
+    if(this.busy)throw Error('请先暂停当前查询');fanInput(raw);const owner=this.requireOwner(),revision=++this.previewRevision;this.pending=null;if(!anchor)this.resolved=null;this.stopped=false;this.busy=true;this.changed();
+    try{const cx=await this.request(()=>this.wire.connect(owner),owner),result=await this.request(()=>cx.resolve(raw),owner);this.check(owner);await cx.assert();this.check(owner);if(revision!==this.previewRevision)throw Error('账号解析已被新的操作替代');if(anchor)this.store.add(owner,result.user);else this.resolved={owner,user:result.user};this.pending=null;return result.user}
+    catch(e:any){if(['CAPTCHA','LOGIN'].includes(e.code)){this.pending={owner,raw,anchor,status:e.code==='CAPTCHA'?'waiting_verification':'waiting_login',message:e.message};this.wire.show()}throw e}
+    finally{this.busy=false;this.changed()}
+  }
+  edit(uid:string,patch:{remark?:string;selected?:boolean}){this.store.edit(this.requireOwner(),uid,patch);this.changed()}
+  remove(uid:string){this.store.remove(this.requireOwner(),uid);this.changed()}
+  pause(){this.stopped=true;this.previewRevision++;const r=this.store.latest(this.owner());if(r&&r.status!=='completed'){r.status='paused';r.message='已暂停，可从断点继续';this.store.save(r)}this.changed()}
+  async start(){if(this.busy)throw Error('已有查询正在运行');const owner=this.requireOwner();if(this.resolved?.owner!==owner)throw Error('请先解析并确认目标账号');const anchors=this.store.anchors(owner).filter(a=>a.selected);if(!anchors.length)throw Error('请添加并勾选至少一名主播');const at=new Date().toISOString();const r:FanRun={id:randomUUID(),owner_uid:owner,target:{...this.resolved.user},anchors:structuredClone(anchors),honor:{level:null,diamond_min:null,diamond_max:null},results:[],status:'running',message:'正在确认登录与目标账号',started_at:at,updated_at:at};this.store.save(r);this.stopped=false;this.busy=true;this.changed();void this.work(r,false)}
+  async resume(verified=false,retry=false){
+    if(this.busy)throw Error('已有查询正在运行');const owner=this.requireOwner();
+    if(this.pending&&!retry){const p=this.pending;if(p.owner!==owner)throw Error('解析任务属于另一个登录账号，请重新识别账号');this.stopped=false;this.busy=true;
+      try{if(verified){for(let i=5;i>0;i--){this.countdown=i;this.changed();await this.delay(1000);this.check(owner)}if(await this.wire.challenge())throw new CollectError('CAPTCHA','验证尚未完成，请继续操作抖音窗口')}}finally{this.countdown=0;this.busy=false;this.changed()}
+      await this.resolve(p.raw,p.anchor);return;
+    }
+    const r=this.store.latest(owner);if(!r)throw Error('没有可继续的查询');if(r.status==='completed'&&!retry)throw Error('查询已结束，可以重试失败项或重新查询');if(retry){r.results=r.results.filter(x=>x.state!=='failed');if(r.results.length===r.anchors.length)throw Error('没有失败项需要重试')}this.stopped=false;this.busy=true;this.changed();void this.work(r,verified)
+  }
+  private async request<T>(fn:()=>Promise<T>,owner:string,target?:FanUser):Promise<T>{
+    for(let attempt=0;;attempt++){
+      this.check(owner);try{const value=await fn();this.check(owner);return value}catch(e:any){this.check(owner);if(['LOGIN','ACCOUNT_CHANGED','IDENTITY','SCHEMA','INPUT','CAPTCHA'].includes(e.code))throw e;
+        if(await this.wire.challenge(target,attempt===0))throw new CollectError('CAPTCHA','请手动完成验证码，再点击已完成验证');
+        if(!['NETWORK','EMPTY','TIMEOUT','HTTP'].includes(e.code)||attempt>=2)throw e;await this.delay(attempt===0?3000:10000);
+      }
+    }
+  }
+  private save(r:FanRun){this.check(r.owner_uid);this.store.save(r);this.changed()}
+  private async work(r:FanRun,verified:boolean){
+    try{
+      if(verified){r.status='cooldown';r.message='验证后等待 5 秒';this.save(r);for(let i=5;i>0;i--){this.countdown=i;this.changed();await this.delay(1000);this.check(r.owner_uid)}this.countdown=0;if(await this.wire.challenge())throw new CollectError('CAPTCHA','验证尚未完成，请继续操作抖音窗口')}
+      const cx=await this.request(()=>this.wire.connect(r.owner_uid),r.owner_uid,r.target);this.check(r.owner_uid);r.status='running';r.message='正在读取用户资料';this.save(r);
+      const profile=await this.request(()=>cx.read({target_uid:r.target.uid,sec_target_uid:r.target.sec_uid}),r.owner_uid,r.target);fanUser(profile,r.target);r.honor=fanHonor(profile);this.save(r);let failures=0,honorConflict=false;
+      for(const anchor of r.anchors){
+        this.check(r.owner_uid);if(r.results.some(x=>x.anchor.uid===anchor.uid))continue;r.message='正在查询 '+anchor.nickname;this.save(r);
+        try{const d=await this.request(()=>cx.read({target_uid:r.target.uid,sec_target_uid:r.target.sec_uid,anchor_id:anchor.uid,sec_anchor_id:anchor.sec_uid}),r.owner_uid,r.target);await cx.assert();this.check(r.owner_uid);const result=fanRelation(d,r.target,anchor);r.results.push(result);failures=0;const h=fanHonor(d);if(!honorConflict){if(r.honor.level===null)r.honor=h;else if(h.level!==r.honor.level||h.diamond_min!==r.honor.diamond_min||h.diamond_max!==r.honor.diamond_max){honorConflict=true;r.honor={level:null,diamond_min:null,diamond_max:null}}}this.save(r)}
+        catch(e:any){if(['PAUSED','CAPTCHA','LOGIN','ACCOUNT_CHANGED','IDENTITY','SCHEMA'].includes(e.code))throw e;this.check(r.owner_uid);r.results.push(fanFailure(anchor,e instanceof CollectError?e.message:'请求失败，结果未知'));this.save(r);failures++;if(failures>=3)throw new CollectError('STOP_FAILURES','连续三个主播请求失败，已暂停；可继续或重试失败项')}
+        await this.delay(1000);
+      }
+      r.status='completed';r.message='查询完成，仅覆盖本次 '+r.anchors.length+' 名主播；未知不代表未加入';this.save(r);
+    }catch(e:any){r.status=e.code==='CAPTCHA'?'waiting_verification':e.code==='LOGIN'?'waiting_login':e.code==='PAUSED'||e.code==='ACCOUNT_CHANGED'||e.code==='STOP_FAILURES'?'paused':'error';r.message=e instanceof CollectError?e.message:'查询中断，已保存进度';this.store.save(r);if(['CAPTCHA','LOGIN'].includes(e.code))this.wire.show()}
+    finally{this.countdown=0;this.busy=false;this.changed()}
+  }
+}

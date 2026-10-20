@@ -12,10 +12,11 @@ for(const folder of ['dist','public'])fs.cpSync(path.join(root,folder),path.join
 fs.mkdirSync(path.join(bundle,'resources'));for(const file of templates)fs.copyFileSync(path.join(root,'resources',file),path.join(bundle,'resources',file));
 fs.writeFileSync(path.join(bundle,'package.json'),JSON.stringify({name:pkg.name,productName:pkg.productName,version:pkg.version,main:pkg.main}));
 fs.copyFileSync(path.join(root,'README.md'),path.join(target,'使用说明.md'));
+fs.copyFileSync(path.join(root,'VERIFICATION-1.3.0.md'),path.join(target,'验证说明.md'));
 fs.copyFileSync(path.join(root,'LICENSE-NOTICE.md'),path.join(target,'许可说明.md'));
 const sourceBase=path.join(release,'抖音关注清单-'+pkg.version+'-源码');const source=fs.existsSync(sourceBase)?sourceBase+'-'+Date.now():sourceBase;fs.mkdirSync(source);
-for(const file of ['src','public','package.json','package-lock.json','tsconfig.json','README.md','LICENSE-NOTICE.md','.gitignore'])fs.cpSync(path.join(root,file),path.join(source,file),{recursive:true});
-fs.mkdirSync(path.join(source,'scripts'));for(const file of ['assets.cjs','package.cjs','smoke.cjs','group-smoke.cjs','group-fixture.cjs'])fs.copyFileSync(path.join(root,'scripts',file),path.join(source,'scripts',file));
+for(const file of ['src','public','package.json','package-lock.json','tsconfig.json','README.md','VERIFICATION-1.3.0.md','LICENSE-NOTICE.md','.gitignore'])fs.cpSync(path.join(root,file),path.join(source,file),{recursive:true});
+fs.mkdirSync(path.join(source,'scripts'));for(const file of ['assets.cjs','package.cjs','smoke.cjs','group-smoke.cjs','group-fixture.cjs','fanclub-smoke.cjs','fanclub-fixture.cjs'])fs.copyFileSync(path.join(root,'scripts',file),path.join(source,'scripts',file));
 fs.mkdirSync(path.join(source,'resources'));for(const file of templates)fs.copyFileSync(path.join(root,'resources',file),path.join(source,'resources',file));
 // Copy only explicit source folders; databases, login sessions, output and node_modules are excluded.
 const quote=s=>"'"+s.replace(/'/g,"''")+"'";
