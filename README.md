@@ -1,3 +1,5 @@
+> 下载：[最新 Windows 版](https://github.com/conghexiangcai/dy-tools/releases/latest) · [全部历史版本](docs/versions.md) · [更新记录](CHANGELOG.md) · [发布流程](docs/PUBLISHING.md)
+
 # 抖音整理箱
 
 Windows 10 / 11，64 位免安装软件。解压完整文件夹，双击 **抖音整理箱.exe**。无需安装 Python、Node，也无需聊天助手保持运行。

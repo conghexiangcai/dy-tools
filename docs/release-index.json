@@ -1,0 +1,1514 @@
+{
+  "repository": "https://github.com/conghexiangcai/dy-tools",
+  "prepared_at": "2026-10-20T09:34:17+08:00",
+  "versions": [
+    {
+      "version": "1.0.0",
+      "title": "首版 Windows 关注清单",
+      "summary": "Electron 桌面登录、关注分页与详情采集、SQLite 断点、筛选排序、多选分批打开及 HTML／JSON／Markdown 导出。",
+      "source_only": true,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.0.0",
+          "commit": "fcf4d03e7d9f5a09b527c476e82ddd9752fa227d",
+          "source_directory": "抖音关注清单-1.0.0-源码-1790834711684",
+          "archive_time": "2026-10-01T14:05:36+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            ".gitignore",
+            "AGENTS.md",
+            "LICENSE-NOTICE.md",
+            "README.md",
+            "SOURCE_ARCHIVE.md",
+            "package-lock.json",
+            "package.json",
+            "public/browser.html",
+            "public/browser.js",
+            "public/index.html",
+            "public/renderer.js",
+            "public/rules.js",
+            "public/style.css",
+            "resources/report-template.html",
+            "scripts/assets.cjs",
+            "scripts/live.cjs",
+            "scripts/migrate-legacy.cjs",
+            "scripts/package.cjs",
+            "scripts/smoke.cjs",
+            "src/browser.ts",
+            "src/collector.ts",
+            "src/domain.ts",
+            "src/export.ts",
+            "src/main.ts",
+            "src/preload.ts",
+            "src/store.ts",
+            "src/tests/core.test.ts",
+            "src/transport.ts",
+            "tsconfig.json"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.0.0-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 60831,
+          "sha256": "4230ecb9a4baf63cd32c23ec3d2a42ecfa0483a4fef9c8357eccc5aea0a1a528",
+          "original": null,
+          "sanitized": true
+        }
+      ],
+      "checksum": "v1.0.0-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.1.0",
+      "title": "最新作品时间与剩余时长",
+      "summary": "增加最新三条发布时间、距今天数筛选和排序、采集剩余时长；分别保存详情与视频阶段。",
+      "source_only": true,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.1.0-build.1",
+          "commit": "2e79a33791bca480b6bad3b79a00edf0eea4c76a",
+          "source_directory": "抖音关注清单-1.1.0-源码",
+          "archive_time": "2026-10-01T19:09:10+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "package-lock.json",
+            "package.json",
+            "public/index.html",
+            "public/offline.js",
+            "public/renderer.js",
+            "public/rules.js",
+            "public/style.css",
+            "resources/desktop-report-template.html",
+            "scripts/assets.cjs",
+            "scripts/live.cjs",
+            "scripts/package.cjs",
+            "scripts/smoke.cjs",
+            "src/browser.ts",
+            "src/collector.ts",
+            "src/domain.ts",
+            "src/export.ts",
+            "src/main.ts",
+            "src/store.ts",
+            "src/tests/core.test.ts",
+            "src/transport.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        },
+        {
+          "number": 2,
+          "tag": "v1.1.0",
+          "commit": "7700e49c94f690b9e26b94d1cadb090024cab3da",
+          "source_directory": "抖音关注清单-1.1.0-源码-1790853058952",
+          "archive_time": "2026-10-01T19:11:18+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "public/renderer.js",
+            "resources/desktop-report-template.html",
+            "src/main.ts",
+            "src/store.ts",
+            "src/tests/core.test.ts"
+          ],
+          "note": "补充已完成详情任务的视频阶段恢复；避免无任务时启动续传；跨北京时间自然日重新计算筛选。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.1.0-build.1-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 79692,
+          "sha256": "b35c68b99c5beebba35c7593e46d8e01f67ac21f17159013bbd1fe9a77d6d4b8",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v1.1.0-source.zip",
+          "kind": "source",
+          "build": 2,
+          "bytes": 79573,
+          "sha256": "51d7bb91a68182f2728dbfee0cd831b082e4fb6022d3a6906161d002ab753546",
+          "original": null,
+          "sanitized": true
+        }
+      ],
+      "checksum": "v1.1.0-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.1.1",
+      "title": "单账号视频分页异常保护",
+      "summary": "视频游标未推进或超过限额时将该账号标记为冲突／未知，继续其他账号，不中止整批。",
+      "source_only": true,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.1.1",
+          "commit": "ec85a380941456792729c69934a94d76462436a5",
+          "source_directory": "抖音关注清单-1.1.1-源码",
+          "archive_time": "2026-10-01T19:16:33+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "package-lock.json",
+            "package.json",
+            "public/renderer.js",
+            "resources/desktop-report-template.html",
+            "scripts/live.cjs",
+            "src/collector.ts",
+            "src/tests/core.test.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.1.1-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 79757,
+          "sha256": "93bd4ab0fa9a91526b9c23de7bd877be849d96b129aaefafee8ed54581865581",
+          "original": null,
+          "sanitized": true
+        }
+      ],
+      "checksum": "v1.1.1-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.1.2",
+      "title": "兼容空作品列表",
+      "summary": "兼容成功响应中的 null 作品列表和省略分页字段；未知时间保持未知，验证码仍暂停。",
+      "source_only": true,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.1.2",
+          "commit": "9afb4fe9d566bb9c89acc91b7bfaf75aaad1322c",
+          "source_directory": "抖音关注清单-1.1.2-源码",
+          "archive_time": "2026-10-01T20:23:35+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "package-lock.json",
+            "package.json",
+            "scripts/live.cjs",
+            "src/browser.ts",
+            "src/collector.ts",
+            "src/tests/core.test.ts",
+            "src/transport.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.1.2-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 80874,
+          "sha256": "c31ce18905b395691d032eba5dfe36623acbbc7b13d17297f4c5238a0d2ad796",
+          "original": null,
+          "sanitized": true
+        }
+      ],
+      "checksum": "v1.1.2-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.1.3",
+      "title": "空响应重试与记录合并",
+      "summary": "空响应核查验证码后有限重试；导入期间保留同时发生的筛选、勾选和打开操作；数据更新时间准确展示。",
+      "source_only": true,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.1.3",
+          "commit": "708b03bbdbd7f9e66d6d40bed23afcad6e887a34",
+          "source_directory": "抖音关注清单-1.1.3-源码",
+          "archive_time": "2026-10-02T00:24:28+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "package-lock.json",
+            "package.json",
+            "public/renderer.js",
+            "resources/desktop-report-template.html",
+            "scripts/smoke.cjs",
+            "src/collector.ts",
+            "src/store.ts",
+            "src/tests/core.test.ts",
+            "src/transport.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.1.3-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 82721,
+          "sha256": "52105f95cef2f3bf48a062e898c13ae4c6fa1cc72bfe5a32699a8e11d8c87a70",
+          "original": null,
+          "sanitized": true
+        }
+      ],
+      "checksum": "v1.1.3-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.1.4",
+      "title": "全新安装从空名单开始",
+      "summary": "取消自动导入历史名单，连接检查使用当前账号样本，分发包移除个人快照。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.1.4",
+          "commit": "d4542f92b677be90cc39a29221423a4fb7a9d9b5",
+          "source_directory": "抖音关注清单-1.1.4-源码",
+          "archive_time": "2026-10-02T11:46:28+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "SOURCE_ARCHIVE.md",
+            "package-lock.json",
+            "package.json",
+            "public/renderer.js",
+            "resources/desktop-report-template.html",
+            "scripts/assets.cjs",
+            "scripts/live.cjs",
+            "scripts/migrate-legacy.cjs",
+            "scripts/package.cjs",
+            "scripts/smoke.cjs",
+            "src/main.ts",
+            "src/store.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.1.4-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 79600,
+          "sha256": "1d5b05174a9e8d3231e1c9c931631c32b31baddf461f831dcc91f84fad94b9bf",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v1.1.4-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 158063839,
+          "sha256": "4189924b76801eb4efa880f5c8038a4b81e09b886cd82cd00a15de15809589cc",
+          "original": "抖音关注清单-1.1.4-win-x64.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v1.1.4-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.1.5",
+      "title": "私密账号标识",
+      "summary": "在昵称旁显示已明确采集的私密状态，窄列换行，无需重新采集。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.1.5",
+          "commit": "711394c1feaf51857cc7162009196b45a8406252",
+          "source_directory": "抖音关注清单-1.1.5-源码",
+          "archive_time": "2026-10-02T15:52:18+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "package-lock.json",
+            "package.json",
+            "public/renderer.js",
+            "public/style.css",
+            "resources/desktop-report-template.html",
+            "scripts/assets.cjs"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.1.5-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 80254,
+          "sha256": "ccb1ed16cd49ae21110326912433c4aeefae66858276b74087033570b52e4fea",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v1.1.5-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 158064368,
+          "sha256": "acc03c0fdf1e3bcd54b6a7e9db8c1dfa3cfed7033e2f46cf2edf9cf380b06cea",
+          "original": "抖音关注清单-1.1.5-win-x64.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v1.1.5-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.2.0",
+      "title": "抖音真实关注分组",
+      "summary": "主页锚定设置分组按钮、多选归属、列表所属分组及刷新；差量写入和回读，账号绑定及大 ID 保护。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.2.0",
+          "commit": "3a88eab9a8294dee3b29e2bb872a6a72f4511583",
+          "source_directory": "抖音关注清单-1.2.0-源码",
+          "archive_time": "2026-10-04T16:20:11+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "package-lock.json",
+            "package.json",
+            "public/browser.js",
+            "public/group-button.html",
+            "public/group-dialog.html",
+            "public/group.css",
+            "public/group.js",
+            "public/index.html",
+            "public/offline.js",
+            "public/renderer.js",
+            "public/rules.js",
+            "public/style.css",
+            "resources/desktop-report-template.html",
+            "scripts/assets.cjs",
+            "scripts/group-fixture.cjs",
+            "scripts/group-smoke.cjs",
+            "scripts/package.cjs",
+            "scripts/smoke.cjs",
+            "src/browser.ts",
+            "src/domain.ts",
+            "src/export.ts",
+            "src/group-service.ts",
+            "src/group-store.ts",
+            "src/group-ui.ts",
+            "src/group-wire.ts",
+            "src/groups.ts",
+            "src/main.ts",
+            "src/preload.ts",
+            "src/store.ts",
+            "src/tests/groups.test.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.2.0-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 106417,
+          "sha256": "f398d96e368705dbed14b12798862c5c9e6b1f9d028275bf404bf6e2496f818b",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v1.2.0-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 158083238,
+          "sha256": "c68aa4c578c4cd404447ef7406c15058220bf0902a425c49db9867c2f7818193",
+          "original": "抖音关注清单-1.2.0-win-x64.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v1.2.0-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.2.1",
+      "title": "分组筛选与列整理",
+      "summary": "增加分组下拉并叠加现有筛选；删除关注状态列、交换分组与命中条件；私密字段兼容旧名单。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.2.1",
+          "commit": "780232640d3dabbe4a4f0ca6117e0feb124e8f1c",
+          "source_directory": "抖音关注清单-1.2.1-源码",
+          "archive_time": "2026-10-05T01:48:05+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "package-lock.json",
+            "package.json",
+            "public/renderer.js",
+            "public/rules.js",
+            "resources/desktop-report-template.html",
+            "scripts/assets.cjs",
+            "scripts/smoke.cjs",
+            "src/domain.ts",
+            "src/export.ts",
+            "src/store.ts",
+            "src/tests/core.test.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.2.1-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 107543,
+          "sha256": "528a18e584946d30bf46e66cc7207b961bc6180242caac6d607ac6bd0c45575f",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v1.2.1-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 158083837,
+          "sha256": "ebe43e4b28d9312399e903e7b35bb740d0699fdad7143d2662b33b3bb6b14cf6",
+          "original": "抖音关注清单-1.2.1-win-x64.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v1.2.1-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.3.0",
+      "title": "指定主播粉丝团查询",
+      "summary": "增加主播名单与目标用户识别，查询灯牌等级／状态、荣誉等级和按等级估算的钻石区间，支持导出和续传。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.3.0-build.1",
+          "commit": "2666ba73ecf07f5a9942087dc76416b7857f2ce2",
+          "source_directory": "抖音关注清单-1.3.0-源码",
+          "archive_time": "2026-10-05T22:07:20+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-1.3.0.md",
+            "package-lock.json",
+            "package.json",
+            "public/browser.js",
+            "public/fanclub.css",
+            "public/fanclub.html",
+            "public/fanclub.js",
+            "public/index.html",
+            "public/renderer.js",
+            "resources/desktop-report-template.html",
+            "scripts/assets.cjs",
+            "scripts/fanclub-fixture.cjs",
+            "scripts/fanclub-smoke.cjs",
+            "scripts/package.cjs",
+            "scripts/smoke.cjs",
+            "src/browser.ts",
+            "src/fanclub-service.ts",
+            "src/fanclub-store.ts",
+            "src/fanclub-ui.ts",
+            "src/fanclub-wire.ts",
+            "src/fanclub.ts",
+            "src/main.ts",
+            "src/preload.ts",
+            "src/tests/fanclub.test.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        },
+        {
+          "number": 2,
+          "tag": "v1.3.0",
+          "commit": "8d554f7e741cbc0b75c74805865ee7aba43c6834",
+          "source_directory": "抖音关注清单-1.3.0-源码-1791209463185",
+          "archive_time": "2026-10-05T22:11:22+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "VERIFICATION-1.3.0.md",
+            "public/fanclub.js",
+            "scripts/fanclub-smoke.cjs",
+            "src/fanclub-service.ts"
+          ],
+          "note": "目标输入与已解析身份绑定，输入变更后隐藏旧预览、禁止查询旧目标，并补充 UI 检查。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.3.0-build.1-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 136091,
+          "sha256": "5f8865ff90a73d44bb542f62b0b4338d4115b4374e9ee72b03436bd733ba5e0e",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v1.3.0-source.zip",
+          "kind": "source",
+          "build": 2,
+          "bytes": 135348,
+          "sha256": "a919e2e7eea195cd53125f1e02c1f8194d7831119fa0934cebc89ed8a021f1a8",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v1.3.0-build.1-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 158105700,
+          "sha256": "c6d459940efb3f8ea01d5a4cf0d73ed6c27cd3df5dcaeeff2a6d91f76d69febc",
+          "original": "抖音关注清单-1.3.0-win-x64.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v1.3.0-win-x64.zip",
+          "kind": "windows",
+          "build": 2,
+          "bytes": 158108961,
+          "sha256": "6015f949899aa0cef4722e7fcbb32b6bab477c55c9563789d9b3686b9880660a",
+          "original": "抖音关注清单-1.3.0-win-x64-1791209462728.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v1.3.0-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.4.0",
+      "title": "抖音号检索与查询请求优化",
+      "summary": "加入抖音号搜索候选、身份确认、复用登录与请求上下文；补充私密标识和空响应耗时处理。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.4.0",
+          "commit": "2b0d4fae0f64bba0eebc73dd56427a89b8b0c938",
+          "source_directory": "抖音关注清单-1.4.0-源码",
+          "archive_time": "2026-10-06T08:55:12+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-1.3.0.md",
+            "VERIFICATION-1.4.0.md",
+            "package-lock.json",
+            "package.json",
+            "public/browser.html",
+            "public/browser.js",
+            "public/fanclub.css",
+            "public/fanclub.html",
+            "public/fanclub.js",
+            "scripts/fanclub-fixture.cjs",
+            "scripts/fanclub-smoke.cjs",
+            "scripts/group-fixture.cjs",
+            "scripts/group-smoke.cjs",
+            "scripts/package.cjs",
+            "src/account-search.ts",
+            "src/browser.ts",
+            "src/domain.ts",
+            "src/fanclub-service.ts",
+            "src/fanclub-ui.ts",
+            "src/fanclub-wire.ts",
+            "src/fanclub.ts",
+            "src/main.ts",
+            "src/preload.ts",
+            "src/store.ts",
+            "src/tests/fanclub.test.ts",
+            "src/transport.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.4.0-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 142676,
+          "sha256": "8424dea2576de676c8883d8f0fc612bf72d74eaa0dd7c6ba1cacc1755b3407c1",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v1.4.0-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 158111336,
+          "sha256": "9b6c5fa36e45b4a1f21ed3bc750e021ed557a8cbc46026a6be259b77518d53fe",
+          "original": "抖音关注清单-1.4.0-win-x64.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v1.4.0-SHA256SUMS.txt"
+    },
+    {
+      "version": "1.4.1",
+      "title": "私密标识跟随主页",
+      "summary": "将私密提示移到主页关注按钮旁的隔离浮层，滚动与身份变化时重定位或隐藏。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v1.4.1",
+          "commit": "cbecea827ee6a9bacc1faab71c8711aa99100633",
+          "source_directory": "抖音关注清单-1.4.1-源码",
+          "archive_time": "2026-10-06T09:36:31+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-1.4.0.md",
+            "VERIFICATION-1.4.1.md",
+            "package-lock.json",
+            "package.json",
+            "public/browser.html",
+            "public/browser.js",
+            "public/group.css",
+            "public/profile-private.html",
+            "scripts/group-smoke.cjs",
+            "src/group-ui.ts",
+            "src/main.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v1.4.1-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 142444,
+          "sha256": "694906845b81256cdc016e91d6f91aedcf49f70fce7f49045845ca7fb8c342d1",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v1.4.1-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 158110995,
+          "sha256": "14d1eb8b6621ea409b514eb3506fb5e4d6ed3218395d4694e506cd8b0308648a",
+          "original": "抖音关注清单-1.4.1-win-x64.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v1.4.1-SHA256SUMS.txt"
+    },
+    {
+      "version": "2.0.0",
+      "title": "抖音整理箱导航与批量工具",
+      "summary": "关注管理和粉丝团查询拆分为独立入口；加入筛选／分组取关预览、忽视名单、关注迁移、互动清理和群名单查重。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v2.0.0",
+          "commit": "c1afd7c55917b0906c3a22037d4db4743a306cdc",
+          "source_directory": "抖音整理箱-2.0.0-源码",
+          "archive_time": "2026-10-06T14:15:14+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-1.4.1.md",
+            "VERIFICATION-2.0.0.md",
+            "package-lock.json",
+            "package.json",
+            "public/fanclub.html",
+            "public/fanclub.js",
+            "public/index.html",
+            "public/renderer.js",
+            "public/style.css",
+            "public/toolbox.css",
+            "public/toolbox.html",
+            "public/toolbox.js",
+            "resources/desktop-report-template.html",
+            "scripts/assets.cjs",
+            "scripts/package.cjs",
+            "scripts/smoke.cjs",
+            "scripts/toolbox-smoke.cjs",
+            "src/action-service.ts",
+            "src/action-wire.ts",
+            "src/fanclub-ui.ts",
+            "src/main.ts",
+            "src/preload.ts",
+            "src/store.ts",
+            "src/tests/tools.test.ts",
+            "src/tool-rules.ts",
+            "src/tool-store.ts",
+            "src/tool-ui.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v2.0.0-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 172571,
+          "sha256": "b92e198ed4d91b531d966e6d6e0ba4cef8c3ed3e220c623befec3b50693fe4a5",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.0.0-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 158134480,
+          "sha256": "fefb959f7b46a320c3ab5b478f7e7b57779f4e263271ede2e946c33c640f5375",
+          "original": "抖音整理箱-2.0.0-win-x64.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v2.0.0-SHA256SUMS.txt"
+    },
+    {
+      "version": "2.1.0",
+      "title": "分享链接与群成员检索",
+      "summary": "支持作品作者／主页分享识别；已加入群目录、成员扫描、跨群查重、查人、导入对比和 JSON／Excel。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v2.1.0",
+          "commit": "85730593d4752d8507dfdf57e0eb5d9adfd11b4f",
+          "source_directory": "抖音整理箱-2.1.0-源码",
+          "archive_time": "2026-10-09T00:00:59+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "LICENSE-NOTICE.md",
+            "README.md",
+            "VERIFICATION-2.0.0.md",
+            "VERIFICATION-2.1.0.md",
+            "package-lock.json",
+            "package.json",
+            "public/chat.css",
+            "public/chat.html",
+            "public/chat.js",
+            "public/fanclub.html",
+            "public/fanclub.js",
+            "public/toolbox.js",
+            "scripts/chat-smoke.cjs",
+            "scripts/fanclub-smoke.cjs",
+            "scripts/package.cjs",
+            "scripts/toolbox-smoke.cjs",
+            "src/browser.ts",
+            "src/chat-domain.ts",
+            "src/chat-files.ts",
+            "src/chat-service.ts",
+            "src/chat-store.ts",
+            "src/chat-ui.ts",
+            "src/chat-wire.ts",
+            "src/fanclub-service.ts",
+            "src/fanclub-ui.ts",
+            "src/fanclub-wire.ts",
+            "src/fanclub.ts",
+            "src/main.ts",
+            "src/preload.ts",
+            "src/tests/chat.test.ts",
+            "src/tests/fanclub.test.ts",
+            "src/transport.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v2.1.0-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 229050,
+          "sha256": "69e75832c8e41ac9bab47c54d0c3f83324a7f1e4189a368bfc646ffd954edd51",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.1.0-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 168900263,
+          "sha256": "e6355af5476a2d6f5db4479df5709a1528e2b4deec394d8c8fe8c50047cb290f",
+          "original": "抖音整理箱-2.1.0-win-x64.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v2.1.0-SHA256SUMS.txt"
+    },
+    {
+      "version": "2.2.0",
+      "title": "粉丝团打卡与服务器 CLI",
+      "summary": "全部已加入粉丝团作为名单来源，普通签到与状态回读；指定时间点或间隔排程、Windows 任务定义及独立服务器脚本。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v2.2.0-build.1",
+          "commit": "71d8f5643a0fab41c35f5de7ba5f0ba3c04aef5c",
+          "source_directory": "抖音整理箱-2.2.0-源码",
+          "archive_time": "2026-10-11T12:15:35+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-2.1.0.md",
+            "VERIFICATION-2.2.0.md",
+            "package-lock.json",
+            "package.json",
+            "public/checkin.css",
+            "public/checkin.html",
+            "public/checkin.js",
+            "public/toolbox.js",
+            "scripts/checkin-smoke.cjs",
+            "scripts/package.cjs",
+            "scripts/toolbox-smoke.cjs",
+            "server/README.md",
+            "server/checkin.service.example",
+            "server/config.example.json",
+            "server/credentials.example.json",
+            "src/checkin-cli.ts",
+            "src/checkin-domain.ts",
+            "src/checkin-schedule.ts",
+            "src/checkin-service.ts",
+            "src/checkin-store.ts",
+            "src/checkin-ui.ts",
+            "src/checkin-wire.ts",
+            "src/main.ts",
+            "src/preload.ts",
+            "src/tests/checkin.test.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        },
+        {
+          "number": 2,
+          "tag": "v2.2.0-build.2",
+          "commit": "ed4cdf9c40680543bc1cc32187b2e70eca22a048",
+          "source_directory": "抖音整理箱-2.2.0-源码-1791692211422",
+          "archive_time": "2026-10-11T12:17:25+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "VERIFICATION-2.2.0.md",
+            "src/checkin-wire.ts",
+            "src/tests/checkin.test.ts"
+          ],
+          "note": "只接受同一已核实抖音会话，移除独立 fandom Cookie；实际提交前再次检查跨日，防止旧日历提交。"
+        },
+        {
+          "number": 3,
+          "tag": "v2.2.0",
+          "commit": "23775cd784f2991256b4220afc6f61f9cbc199b9",
+          "source_directory": "抖音整理箱-2.2.0-源码-1791692409888",
+          "archive_time": "2026-10-11T12:20:43+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "public/checkin.js"
+          ],
+          "note": "历史签到记录标注记录日期，避免将往日结果显示为今日已签到。服务器包另含后续使用说明修订。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v2.2.0-build.1-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 265171,
+          "sha256": "d6ac5a8c44a3a4689bfe97b14c0e01c7d5f2d2c34af8db52aedcb8bac72bfd51",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.2.0-build.2-source.zip",
+          "kind": "source",
+          "build": 2,
+          "bytes": 265378,
+          "sha256": "29c5f0a4f94b1ac4bfee8d284a2ab24b2fea04d8c956fc3fd126757443c444d4",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.2.0-source.zip",
+          "kind": "source",
+          "build": 3,
+          "bytes": 263951,
+          "sha256": "8d0d7fd9d8f8da7cff7e311283fa2333375930d0ce2e057ef8d319396d04fced",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.2.0-build.1-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 168925472,
+          "sha256": "3513a45e36cb1b06c78d85652531cc33350403578316c73c72d94be8777a310a",
+          "original": "抖音整理箱-2.2.0-win-x64.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.2.0-build.2-win-x64.zip",
+          "kind": "windows",
+          "build": 2,
+          "bytes": 169096562,
+          "sha256": "0950ded62abe2e4ccb534b85b4500ef407648414a1789852ea33f32c77603308",
+          "original": "抖音整理箱-2.2.0-win-x64-1791692182448.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.2.0-win-x64.zip",
+          "kind": "windows",
+          "build": 3,
+          "bytes": 169096719,
+          "sha256": "544a541c824d3873157736a2e4747bc07630b1a014d1596f3bda9dfce487b7eb",
+          "original": "抖音整理箱-2.2.0-win-x64-1791692381654.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.2.0-build.1-server.zip",
+          "kind": "server",
+          "build": 1,
+          "bytes": 19022,
+          "sha256": "b3f1fe4372f13600156b5dadec4a188f2859ab726342c578e5a490c867de133c",
+          "original": "粉丝团打卡-2.2.0-服务器.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.2.0-build.2-server.zip",
+          "kind": "server",
+          "build": 2,
+          "bytes": 19426,
+          "sha256": "80fa78c7094969c6b5bac5a11c9dc20bdeea91edca3dbe8956805630b1a619d6",
+          "original": "粉丝团打卡-2.2.0-服务器-1791692211678.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.2.0-server.zip",
+          "kind": "server",
+          "build": 3,
+          "bytes": 26472,
+          "sha256": "5412457993cbdd1ea36dc0e4494799bb57cd4c27466317484f6d736adc65fe6e",
+          "original": "粉丝团打卡-2.2.0-服务器-1791692410151.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v2.2.0-SHA256SUMS.txt"
+    },
+    {
+      "version": "2.3.0",
+      "title": "分组管家与关注／群成员动态",
+      "summary": "新增分组管家、关注动态、群成员变动；完整快照比较、增删与昵称变化、成员复制／移动预览、导出和历史。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v2.3.0-build.1",
+          "commit": "6d63186dfbc272d101a8f4ac2db0d1201d741138",
+          "source_directory": "抖音整理箱-2.3.0-源码",
+          "archive_time": null,
+          "time_evidence": "未留存源码 ZIP，时间未知",
+          "changes": [
+            "README.md",
+            "VERIFICATION-2.2.0.md",
+            "VERIFICATION-2.3.0.md",
+            "package-lock.json",
+            "package.json",
+            "public/index.html",
+            "public/organization.css",
+            "public/organization.html",
+            "public/organization.js",
+            "public/renderer.js",
+            "public/toolbox.js",
+            "resources/desktop-report-template.html",
+            "scripts/assets.cjs",
+            "scripts/organization-smoke.cjs",
+            "scripts/package.cjs",
+            "server/使用说明.md",
+            "src/activity-domain.ts",
+            "src/activity-service.ts",
+            "src/activity-store.ts",
+            "src/browser.ts",
+            "src/chat-domain.ts",
+            "src/chat-service.ts",
+            "src/group-manager.ts",
+            "src/group-service.ts",
+            "src/group-wire.ts",
+            "src/main.ts",
+            "src/organization-ui.ts",
+            "src/preload.ts",
+            "src/tests/organization.test.ts",
+            "src/transport.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        },
+        {
+          "number": 2,
+          "tag": "v2.3.0",
+          "commit": "0f5a167842937ddde5940983669942fe6c8f5970",
+          "source_directory": "抖音整理箱-2.3.0-源码-1791859923082",
+          "archive_time": "2026-10-13T10:52:38+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "scripts/package.cjs",
+            "src/organization-ui.ts"
+          ],
+          "note": "变化导出补充前后快照时间、来源及完整性；修复 Windows 打包所需压缩程序集加载。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v2.3.0-build.1-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 306003,
+          "sha256": "9813369d9acc195146cacc329708725225ee585ce56f65a3d23c9cb09f7bee6b",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.3.0-source.zip",
+          "kind": "source",
+          "build": 2,
+          "bytes": 304330,
+          "sha256": "f80545a83ec5d405e1e180bea4efa9700d794a2c27b30a4fda9decb85736e7a6",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.3.0-win-x64.zip",
+          "kind": "windows",
+          "build": 2,
+          "bytes": 169123519,
+          "sha256": "abeb20b968e972d4b3a98d0d8bd0c24bf54aa4522d0019b7bd0c22a8b115c34e",
+          "original": "抖音整理箱-2.3.0-win-x64-1791859898836.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.3.0-server.zip",
+          "kind": "server",
+          "build": 2,
+          "bytes": 26021,
+          "sha256": "bbc9939dad3ab595106cce8ec0ce4b514967431ca3d3a7337cf66be6bd0dd2a5",
+          "original": "粉丝团打卡-2.3.0-服务器-1791859923327.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v2.3.0-SHA256SUMS.txt"
+    },
+    {
+      "version": "2.3.1",
+      "title": "群扫描、登录同步及分组刷新修复",
+      "summary": "群成员读取保留完整 IM 对象；统一在线登录状态；分组目录与个人归属分离，独立刷新并保留失败前数据。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v2.3.1-build.1",
+          "commit": "5610cfdcaca069c6ca8da947e183574048ed769c",
+          "source_directory": "抖音整理箱-2.3.1-源码",
+          "archive_time": "2026-10-14T20:27:56+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-2.3.0.md",
+            "VERIFICATION-2.3.1.md",
+            "package-lock.json",
+            "package.json",
+            "public/chat.html",
+            "public/checkin.html",
+            "public/fanclub.html",
+            "public/index.html",
+            "public/organization.html",
+            "public/organization.js",
+            "public/renderer.js",
+            "public/session-status.js",
+            "public/toolbox.html",
+            "resources/desktop-report-template.html",
+            "scripts/assets.cjs",
+            "scripts/chat-smoke.cjs",
+            "scripts/checkin-smoke.cjs",
+            "scripts/fixes-smoke.cjs",
+            "scripts/organization-smoke.cjs",
+            "scripts/package.cjs",
+            "scripts/smoke.cjs",
+            "scripts/toolbox-smoke.cjs",
+            "src/browser.ts",
+            "src/chat-service.ts",
+            "src/chat-wire.ts",
+            "src/group-service.ts",
+            "src/groups.ts",
+            "src/login-state.ts",
+            "src/main.ts",
+            "src/organization-ui.ts",
+            "src/preload.ts",
+            "src/tests/chat-page.test.ts",
+            "src/tests/groups.test.ts",
+            "src/tests/login-state.test.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        },
+        {
+          "number": 2,
+          "tag": "v2.3.1",
+          "commit": "0a84addcfdd1af6933e02455cbbf8bf87802d24c",
+          "source_directory": "抖音整理箱-2.3.1-源码-1791994907545",
+          "archive_time": "2026-10-15T00:22:47+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-2.3.1.md",
+            "package.json",
+            "scripts/navigation-smoke.cjs",
+            "scripts/package.cjs",
+            "src/browser.ts",
+            "src/main.ts",
+            "src/navigation-guard.ts",
+            "src/tests/navigation-guard.test.ts"
+          ],
+          "note": "统一拦截 bytedance、intent 等外部客户端协议，覆盖网页、子框架、重定向和系统应用打开权限。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v2.3.1-build.1-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 316561,
+          "sha256": "82abe90281a929cc97ae75d93c3d81299205e3f9e9f9ed47c8ad95830debf0f9",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.3.1-source.zip",
+          "kind": "source",
+          "build": 2,
+          "bytes": 318994,
+          "sha256": "d37ffdfb61bf8440e5b208ea764e8b9dd4e03af6224ebf777300c3a24f21037a",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.3.1-build.1-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 168957246,
+          "sha256": "cbc865d5cc0443ff5672903f0c1db890a43117ad0edc3805ddfa37201ad36ca1",
+          "original": "抖音整理箱-2.3.1-win-x64.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.3.1-win-x64.zip",
+          "kind": "windows",
+          "build": 2,
+          "bytes": 169129830,
+          "sha256": "879379773c7db6282e206da63fcb4542f44a3c51654303ab2f4682c363032d8a",
+          "original": "抖音整理箱-2.3.1-win-x64-1791994845012.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.3.1-build.1-server.zip",
+          "kind": "server",
+          "build": 1,
+          "bytes": 25685,
+          "sha256": "78f8630c5572b2cd087881278249de668d12f3b446963ad7787592df97fd93ac",
+          "original": "粉丝团打卡-2.3.1-服务器.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.3.1-server.zip",
+          "kind": "server",
+          "build": 2,
+          "bytes": 26021,
+          "sha256": "aee0f4da77e4433684e14f2dc2115d63a4f04a738086322257f9870c76e2eaaf",
+          "original": "粉丝团打卡-2.3.1-服务器-1791994908333.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v2.3.1-SHA256SUMS.txt"
+    },
+    {
+      "version": "2.4.0",
+      "title": "单篇作品下载",
+      "summary": "多分享链接解析、视频及静态图集、资源核验、串行流式下载、临时文件、暂停续传和账号隔离记录。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v2.4.0",
+          "commit": "8c51f46ddf8ffdd70264473c9161dbb1b2190584",
+          "source_directory": "抖音整理箱-2.4.0-源码",
+          "archive_time": "2026-10-16T13:14:37+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-2.3.1.md",
+            "VERIFICATION-2.4.0.md",
+            "package-lock.json",
+            "package.json",
+            "public/browser.js",
+            "public/download.css",
+            "public/download.html",
+            "public/download.js",
+            "public/toolbox.js",
+            "scripts/download-smoke.cjs",
+            "scripts/package.cjs",
+            "src/download-domain.ts",
+            "src/download-files.ts",
+            "src/download-page.ts",
+            "src/download-service.ts",
+            "src/download-store.ts",
+            "src/download-ui.ts",
+            "src/download-wire.ts",
+            "src/fanclub-wire.ts",
+            "src/main.ts",
+            "src/preload.ts",
+            "src/tests/download.test.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v2.4.0-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 351577,
+          "sha256": "14a88edc6a5b6de0f729da23d818312ba744e0e1289094da42fbf5beec0bcb04",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.4.0-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 168984853,
+          "sha256": "a8235f020b81d08b537138490abf5c5c379f666865eddb4aaac7ec3f67c0f513",
+          "original": "抖音整理箱-2.4.0-win-x64.zip",
+          "sanitized": true
+        },
+        {
+          "name": "v2.4.0-server.zip",
+          "kind": "server",
+          "build": 1,
+          "bytes": 25685,
+          "sha256": "16ef1730a7740ebc6205b321845e2fd613898939dafbfb61aee63242500d97a4",
+          "original": "粉丝团打卡-2.4.0-服务器.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v2.4.0-SHA256SUMS.txt"
+    },
+    {
+      "version": "2.4.1",
+      "title": "关注采集自动等待重试",
+      "summary": "空响应和临时网络失败保存断点，显示退避倒计时并自动重试；验证码、身份失效仍人工处理。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v2.4.1",
+          "commit": "ef903c9da50dc358644d310032117842256a92c8",
+          "source_directory": "抖音整理箱-2.4.1-源码",
+          "archive_time": "2026-10-18T02:11:33+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-2.4.0.md",
+            "VERIFICATION-2.4.1.md",
+            "package-lock.json",
+            "package.json",
+            "public/browser.js",
+            "public/renderer.js",
+            "resources/desktop-report-template.html",
+            "scripts/package.cjs",
+            "scripts/retry-smoke.cjs",
+            "src/browser.ts",
+            "src/collector.ts",
+            "src/domain.ts",
+            "src/main.ts",
+            "src/store.ts",
+            "src/tests/collector-retry.test.ts",
+            "src/tests/core.test.ts",
+            "src/transport.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v2.4.1-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 359059,
+          "sha256": "6b73ab13c3b8416a943246d4264682985ed882fc54100c13fac6d18a9be92671",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.4.1-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 168985871,
+          "sha256": "60d2abf2687b3b2b16f4c68037716fa0b2278a03b23b33f55f40bbeda010dee2",
+          "original": "抖音整理箱-2.4.1-win-x64.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.4.1-server.zip",
+          "kind": "server",
+          "build": 1,
+          "bytes": 25685,
+          "sha256": "375470a3abc8249b2e2e94e98607e2eea944ed27a930f18d6420ec39e555ec1d",
+          "original": "粉丝团打卡-2.4.1-服务器.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v2.4.1-SHA256SUMS.txt"
+    },
+    {
+      "version": "2.4.2",
+      "title": "邮件告警、标签性能与群成员资料",
+      "summary": "桌面和服务器 QQ 邮件失败告警；主页按需加载、关闭音频释放；跨群资料合并及按需补全；修复启动切页 ERR_ABORTED。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v2.4.2",
+          "commit": "33dfbc3202b3404da6eaf9dc2a88b69cbc3d010b",
+          "source_directory": "抖音整理箱-2.4.2-源码",
+          "archive_time": "2026-10-19T09:13:36+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-2.4.1.md",
+            "VERIFICATION-2.4.2.md",
+            "package-lock.json",
+            "package.json",
+            "public/browser.html",
+            "public/browser.js",
+            "public/chat.html",
+            "public/chat.js",
+            "public/checkin.html",
+            "public/checkin.js",
+            "scripts/maintenance-smoke.cjs",
+            "scripts/package.cjs",
+            "server/README.md",
+            "server/config.example.json",
+            "server/mail-credentials.example.json",
+            "server/使用说明.md",
+            "src/browser.ts",
+            "src/chat-domain.ts",
+            "src/chat-files.ts",
+            "src/chat-profiles.ts",
+            "src/chat-store.ts",
+            "src/chat-ui.ts",
+            "src/chat-wire.ts",
+            "src/checkin-cli.ts",
+            "src/checkin-domain.ts",
+            "src/checkin-mail.ts",
+            "src/checkin-service.ts",
+            "src/checkin-ui.ts",
+            "src/local-navigation.ts",
+            "src/main.ts",
+            "src/preload.ts",
+            "src/tests/chat-profiles.test.ts",
+            "src/tests/checkin-mail.test.ts",
+            "src/tests/local-navigation.test.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v2.4.2-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 373257,
+          "sha256": "3ba5da3a0a0622421f00e6e1e0369935bbbc9b313234c44b4394fe6179e374a4",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.4.2-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 168987408,
+          "sha256": "b6cf2215d44a3ed50eb5726b0ead3d4a0445d426054f311cff7316742636e8be",
+          "original": "抖音整理箱-2.4.2-win-x64.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.4.2-server.zip",
+          "kind": "server",
+          "build": 1,
+          "bytes": 35840,
+          "sha256": "05967cc3fe11ee29aa754b435f59b0b9f0a1572968328cf39beaa195036fff49",
+          "original": "粉丝团打卡-2.4.2-服务器.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v2.4.2-SHA256SUMS.txt"
+    },
+    {
+      "version": "2.4.3",
+      "title": "浏览器式标签与窗口释放",
+      "summary": "右键关闭当前／其他／全部／左／右，重新加载、复制标签和链接；最后标签关闭时销毁窗口，再次打开重建。",
+      "source_only": false,
+      "builds": [
+        {
+          "number": 1,
+          "tag": "v2.4.3",
+          "commit": "e03ae63da5d5d34e08c057e1d55af0f4437a48eb",
+          "source_directory": "抖音整理箱-2.4.3-源码",
+          "archive_time": "2026-10-19T11:00:18+08:00",
+          "time_evidence": "本地原始源码 ZIP 修改时间",
+          "changes": [
+            "README.md",
+            "VERIFICATION-2.4.2.md",
+            "VERIFICATION-2.4.3.md",
+            "package-lock.json",
+            "package.json",
+            "public/browser.html",
+            "public/browser.js",
+            "scripts/browser-tabs-smoke.cjs",
+            "scripts/maintenance-smoke.cjs",
+            "scripts/package.cjs",
+            "src/browser.ts",
+            "src/group-ui.ts",
+            "src/main.ts",
+            "src/preload.ts"
+          ],
+          "note": "本版初次源码快照；功能见版本摘要。"
+        }
+      ],
+      "assets": [
+        {
+          "name": "v2.4.3-source.zip",
+          "kind": "source",
+          "build": 1,
+          "bytes": 377948,
+          "sha256": "0d95ab901c586ad8b96d12e5cb5442c02742ae6b76c8662a67a60a12415f878b",
+          "original": null,
+          "sanitized": true
+        },
+        {
+          "name": "v2.4.3-win-x64.zip",
+          "kind": "windows",
+          "build": 1,
+          "bytes": 168988412,
+          "sha256": "f509ddbb236dc41e2eadf3801a938db609ef1f26e295ecfa63bbde129bfca089",
+          "original": "抖音整理箱-2.4.3-win-x64.zip",
+          "sanitized": false
+        },
+        {
+          "name": "v2.4.3-server.zip",
+          "kind": "server",
+          "build": 1,
+          "bytes": 35840,
+          "sha256": "0a65c5195f0240ac9c0ee63d0127f2a189d643d5f7db506df471b0e93d806c40",
+          "original": "粉丝团打卡-2.4.3-服务器.zip",
+          "sanitized": false
+        }
+      ],
+      "checksum": "v2.4.3-SHA256SUMS.txt"
+    }
+  ]
+}
