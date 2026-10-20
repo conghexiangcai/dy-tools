@@ -6,7 +6,7 @@ import path from 'node:path';
 import {Store} from '../store';
 import {Collector} from '../collector';
 import {CollectError,Transport,parseFollowing,parseOwner,parseVideos,newestThree} from '../transport';
-import {User,makeRow,classify,settingsDefaults,latestAge,matchesAge} from '../domain';
+import {User,makeRow,classify,settingsDefaults,latestAge,matchesAge,accountPrivacy} from '../domain';
 import {exportText} from '../export';
 
 const user=(id:string):User=>({uid:id,sec_uid:'MS4wLjABAAAA'+id,nickname:'账号 '+id,follower_count:10000,follow_status:1,secret:0});
@@ -44,6 +44,21 @@ test('作品来源、私密/缺失数据未知、互关映射以及账号身份'
   assert.equal(makeRow(u,{...profile(u),follow_status:1}).mutual_follow,false);
   assert.equal(makeRow(u,{...profile(u),follow_status:0}).mutual_follow,null);
   assert.throws(()=>makeRow(u,profile(user('2'))));
+});
+test('隐私状态独立于作品数，旧数据兼容不会覆盖使用记录',t=>{
+  const {store:s}=fixture(t),u=user('1'),r=s.createRun('100',1);
+  assert.equal(makeRow({...u,secret:1}).is_private,true);
+  assert.equal(makeRow({...u,secret:1},{...profile(u),secret:0}).is_private,false);
+  assert.equal(makeRow({...u,secret:undefined}).is_private,null);
+  assert.equal(accountPrivacy({is_private:true,works_status:'verified',works_count:20}),true);
+  assert.equal(accountPrivacy({is_private:null,works_status:'private'}),null);
+  assert.equal(accountPrivacy({works_status:'request_failed'}),null);
+  s.addPage(r.id,[{...u,secret:1}],{offset:1,max_time:0,pages:1},true);
+  const legacy={...makeRow(u),works_status:'not_checked'};delete legacy.is_private;s.saveRow(r.id,legacy);
+  s.reviewDelta('100',{opened:['1'],select:{ids:['1'],value:true},settings:{search:'保留筛选'}});
+  const before=s.getReview();assert.equal(s.snapshot().rows[0].is_private,true);
+  assert.deepEqual(s.getReview(),before);
+  assert.equal(JSON.parse((s.db.prepare('SELECT data FROM profiles WHERE run_id=? AND uid=?').get(r.id,u.uid) as any).data).is_private,undefined);
 });
 test('接口结构和分页游标校验',()=>{
   assert.throws(()=>parseOwner({user:{uid:'0'}}),/登录/);

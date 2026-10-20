@@ -1,5 +1,5 @@
 export type User = { uid: string; sec_uid: string; nickname?: string; unique_id?: string; short_id?: string; follower_count?: number; following_count?: number; follow_status?: number; secret?: number };
-export type Row = { uid: string; sec_uid: string; nickname: string; account: string; follower_count: number|null; following_count: number|null; works_count: number|null; works_status: string; mutual_follow: boolean|null; follow_status: number|null; following_minus_followers: number|null; profile_url: string; checked_at: string|null; profile_status: string; following_state: string; recent_video_times?:string[]; recent_videos_status?:string; videos_checked_at?:string; [key:string]: unknown };
+export type Row = { uid: string; sec_uid: string; nickname: string; account: string; is_private?:boolean|null; follower_count: number|null; following_count: number|null; works_count: number|null; works_status: string; mutual_follow: boolean|null; follow_status: number|null; following_minus_followers: number|null; profile_url: string; checked_at: string|null; profile_status: string; following_state: string; recent_video_times?:string[]; recent_videos_status?:string; videos_checked_at?:string; [key:string]: unknown };
 export type Review = { selected: string[]; opened: string[]; lastBatch: string[]; settings: Record<string,string|boolean> };
 export type Status = 'running'|'paused'|'waiting_login'|'waiting_verification'|'cooldown'|'error'|'completed';
 export type Run = { id:string; owner_uid:string; phase:'following'|'profiles'|'videos'; status:Status; offset:number; max_time:number; pages:number; started_at:string; updated_at:string; snapshot_at:string|null; message:string; total_hint:number; error_uid:string|null };
@@ -7,6 +7,14 @@ export const settingsDefaults: Record<string,string|boolean> = {fans:'10000','fa
 export function matchesGroup(row:Pick<Row,'groups'|'groups_status'>,id:string){if(!id)return true;if(id==='unknown')return row.groups_status!=='known';if(id==='ungrouped')return row.groups_status==='known'&&Array.isArray(row.groups)&&row.groups.length===0;return row.groups_status==='known'&&Array.isArray(row.groups)&&row.groups.some((g:any)=>g.id===id)}
 export const uidValid = (s:unknown): s is string => typeof s==='string' && /^\d{1,32}$/.test(s);
 export const count = (x:unknown):number|null => typeof x==='number' && Number.isSafeInteger(x) && x>=0 ? x:null;
+// Account visibility is independent of whether a work count was obtainable.
+export function accountPrivacy(row:Partial<Row>,member?:User):boolean|null {
+  if(typeof row.is_private==='boolean'||row.is_private===null)return row.is_private;
+  if(row.secret===1||row.works_status==='private')return true;
+  if(row.secret===0||row.works_status==='verified')return false;
+  if(row.works_status==='privacy_unknown')return null;
+  return member?.secret===1?true:member?.secret===0?false:null;
+}
 export function cleanUser(x:any):User {
   if(!x || !uidValid(x.uid) || typeof x.sec_uid!=='string' || !/^[A-Za-z0-9_-]{8,200}$/.test(x.sec_uid)) throw new Error('接口返回的账号身份不完整');
   const u:User={uid:x.uid,sec_uid:x.sec_uid};
@@ -21,7 +29,7 @@ export function makeRow(u:User,p?:any,failed=false):Row {
   const works_status=secret!==0?(secret===1?'private':'privacy_unknown'):!p?(failed?'request_failed':'not_checked'):count(p.aweme_count)===null?'missing_count':'verified';
   const works=works_status==='verified'?count(p.aweme_count):null;
   const follow=count(p?.follow_status??u.follow_status);
-  return {uid:u.uid,sec_uid:u.sec_uid,nickname:typeof p?.nickname==='string'?p.nickname:u.nickname||'',account:u.unique_id||u.short_id||u.uid,follower_count:fans,following_count:following,works_count:works,works_status,mutual_follow:follow===2?true:follow===1?false:null,follow_status:follow,following_minus_followers:fans!==null&&following!==null?following-fans:null,profile_url:'https://www.douyin.com/user/'+u.sec_uid,checked_at:p?new Date().toISOString():null,profile_status:p?'ok':failed?'request_failed':'not_checked',following_state:'关注中（名单同步时）'};
+  return {uid:u.uid,sec_uid:u.sec_uid,nickname:typeof p?.nickname==='string'?p.nickname:u.nickname||'',account:u.unique_id||u.short_id||u.uid,is_private:secret===1?true:secret===0?false:null,follower_count:fans,following_count:following,works_count:works,works_status,mutual_follow:follow===2?true:follow===1?false:null,follow_status:follow,following_minus_followers:fans!==null&&following!==null?following-fans:null,profile_url:'https://www.douyin.com/user/'+u.sec_uid,checked_at:p?new Date().toISOString():null,profile_status:p?'ok':failed?'request_failed':'not_checked',following_state:'关注中（名单同步时）'};
 }
 export function sanitizeSettings(input:any):Record<string,string|boolean> {
   const out:Record<string,string|boolean>={};

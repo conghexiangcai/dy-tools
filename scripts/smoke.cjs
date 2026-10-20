@@ -45,6 +45,14 @@ async function launch(dataDir=profile,expected='120'){
  await p.locator('#group-filter').selectOption('');await p.locator('#fans-min').fill('10000');await p.locator('#works-min').fill('20');
  const counts=await p.locator('#rows tr').evaluateAll(trs=>trs.map(tr=>[tr.children[2]?.textContent,tr.children[5]?.textContent]));
  assert.ok(counts.length);assert.ok(counts.every(([fans,works])=>Number(fans.replace(/,/g,''))>10000&&Number(works.replace(/,/g,''))>20));
+ // Visibility is independent of a known work count, including offline exports.
+ await p.evaluate(()=>{filtered[0].r.is_private=true;render()});
+ assert.equal(await p.locator('#rows .person-name .private-badge').count(),1);
+ assert.equal(await p.locator('#rows .private-badge').textContent(),'🔒 私密账号');
+ await p.screenshot({path:path.join(out,'privacy-badge.png'),fullPage:true});
+ await p.evaluate(()=>{filtered[0].r.is_private=null;render()});
+ assert.equal(await p.locator('#rows .private-badge').count(),0);
+ await p.evaluate(()=>{filtered[0].r.is_private=false;render()});
  await p.locator('#select-page').click();assert.equal(await p.locator('#selected-count').textContent(),'50');
  await p.locator('#next').click();await p.locator('#rows input[type=checkbox]').first().check();
  assert.equal(await p.locator('#selected-count').textContent(),'51');
@@ -78,5 +86,6 @@ async function launch(dataDir=profile,expected='120'){
  const exported=await offlinePagePromise;await exported.waitForFunction(()=>document.getElementById('total')?.textContent==='120');
  await exported.locator('#fans').fill('');await exported.locator('#works-limit').fill('');await exported.locator('#days-max').fill('10');assert.equal(await exported.locator('#match-count').textContent(),'1');assert.equal(await exported.locator('#rows .video-times div').count(),3);
  await exported.locator('#days-max').fill('');await exported.locator('#group-filter').selectOption('9223372036854775806');assert.equal(await exported.locator('#match-count').textContent(),'21');
+ await exported.evaluate(()=>{filtered[0].r.is_private=true;render()});assert.equal(await exported.locator('#rows .private-badge').count(),1);
  await app.close();app=null;console.log('PASS: 首次及重复启动空名单、未登录筛选无保存错误、合成快照、严格上下限、时间筛选排序及三行展示、跨页勾选、重启恢复、是否打开、搜索、导入时并发编辑、窗口隔离和离线 HTML。');
 })().catch(async e=>{console.error(e);if(app)await app.close().catch(()=>{});process.exitCode=1});

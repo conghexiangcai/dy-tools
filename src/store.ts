@@ -2,7 +2,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';
-import {User,Row,Run,Review,makeRow,settingsDefaults,sanitizeSettings,cleanIds,uidValid,classify} from './domain';
+import {User,Row,Run,Review,makeRow,settingsDefaults,sanitizeSettings,cleanIds,uidValid,classify,accountPrivacy} from './domain';
 import {GroupStore} from './group-store';
 export class Store {
   db:DatabaseSync;
@@ -49,7 +49,7 @@ export class Store {
   snapshot(owner=this.owner()){
     const a=this.db.prepare('SELECT * FROM accounts WHERE uid=?').get(owner) as any;
     const run=a?.active_run?this.run(a.active_run):null;
-    const rows:Row[]=run?(this.db.prepare('SELECT m.data member,p.data profile FROM members m LEFT JOIN profiles p ON p.run_id=m.run_id AND p.uid=m.uid WHERE m.run_id=? ORDER BY m.rowid').all(run.id) as any[]).map(x=>x.profile?JSON.parse(x.profile):makeRow(JSON.parse(x.member))):[];
+    const rows:Row[]=run?(this.db.prepare('SELECT m.data member,p.data profile FROM members m LEFT JOIN profiles p ON p.run_id=m.run_id AND p.uid=m.uid WHERE m.run_id=? ORDER BY m.rowid').all(run.id) as any[]).map(x=>{const member=JSON.parse(x.member),row=x.profile?JSON.parse(x.profile):makeRow(member);return {...row,is_private:accountPrivacy(row,member)}}):[];
     const memberships=this.groups.rows(owner);for(const row of rows)Object.assign(row,memberships.get(row.uid)||{groups:[],groups_status:'unknown',groups_checked_at:null,groups_stale:false});
     const knownIds=new Set(rows.map(r=>r.uid)),groupRows=this.groups.users(owner).filter(r=>!knownIds.has(r.uid));for(const row of groupRows)Object.assign(row,memberships.get(row.uid)||{groups:[],groups_status:'unknown'});
     const decisions=rows.map(r=>classify(r,settingsDefaults).state);
