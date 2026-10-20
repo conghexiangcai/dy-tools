@@ -8,6 +8,7 @@ export class DouyinFanWire implements FanWire {
   private last=0;
   private verified:{owner:string;identity:string;at:number}|null=null;
   constructor(private session:Session,private transport:DouyinTransport){}
+  expandLink(url:string){return this.redirect(fanLink(url).href)}
   private async redirect(url:string):Promise<string>{
     // Electron Session.fetch rejects redirect:'manual' with "Redirect was cancelled".
     // ClientRequest exposes the Location without following it; every hop is validated below.
