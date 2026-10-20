@@ -1,4 +1,4 @@
-window.filterDefaults={"fans":"10000","fans-min":"","works-limit":"20","works-min":"","days-min":"","days-max":"","logic":"or","mutual":"","decision":"match","works-state":"","opened-state":"","sort":"difference_desc","following-greater":false,"search":"","batch-size":"5"};
+window.filterDefaults={"fans":"10000","fans-min":"","works-limit":"20","works-min":"","days-min":"","days-max":"","logic":"or","mutual":"","decision":"match","works-state":"","opened-state":"","group-filter":"","sort":"difference_desc","following-greater":false,"search":"","batch-size":"5"};
 window.classifyRow=function classify(row, settings) {
     const values = [];
     for (const [id, key, op, label] of [['fans', 'follower_count', 'lt', '粉丝'], ['fans-min', 'follower_count', 'gt', '粉丝'], ['works-limit', 'works_count', 'lt', '作品'], ['works-min', 'works_count', 'gt', '作品']]) {
@@ -40,3 +40,7 @@ window.matchesAge=function matchesAge(age, settings) {
     }
     return match;
 };
+window.matchesGroup=function matchesGroup(row, id) { if (!id)
+    return true; if (id === 'unknown')
+    return row.groups_status !== 'known'; if (id === 'ungrouped')
+    return row.groups_status === 'known' && Array.isArray(row.groups) && row.groups.length === 0; return row.groups_status === 'known' && Array.isArray(row.groups) && row.groups.some((g) => g.id === id); };

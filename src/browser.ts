@@ -6,7 +6,8 @@ const delay=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 export const appURL='app://local/';
 export function allowedRemote(url:string){try{const u=new URL(url);return u.protocol==='https:'&&['douyin.com','iesdouyin.com','bytedance.com','snssdk.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false}}
 export class BrowserHost {
-  window:BrowserWindow;tabs:{id:string;title:string;view:WebContentsView}[]=[];active='';onChange=()=>{};
+  window:BrowserWindow;tabs:{id:string;title:string;view:WebContentsView}[]=[];active='';onChange=()=>{};onContextChange=()=>{};revision=0;
+  contextChanged(){this.revision++;this.onContextChange()}
   constructor(public mode:'collector'|'review',preload:string,private notify:(host:BrowserHost)=>void){
     this.window=new BrowserWindow({width:1160,height:820,minWidth:700,minHeight:500,show:false,title:mode==='collector'?'抖音登录与验证':'手动查看主页',autoHideMenuBar:true,webPreferences:{preload,contextIsolation:true,nodeIntegration:false,sandbox:true}});
     this.window.loadURL(appURL+'browser.html?mode='+mode);this.window.on('resize',()=>this.resize());
@@ -21,27 +22,33 @@ export class BrowserHost {
     const view=new WebContentsView({webPreferences:{partition:'persist:douyin-login',contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
     this.tabs.push({id,title,view});this.window.contentView.addChildView(view);this.select(id);
     const wc=view.webContents;wc.setWindowOpenHandler(({url})=>{if(allowedRemote(url))void this.add(url,'抖音页面',String(Date.now())).catch(()=>{});return {action:'deny'};});
+    wc.on('did-start-navigation',(_e,_url,_inPlace,isMain)=>{if(isMain)this.contextChanged()});
+    wc.on('did-navigate-in-page',(_e,_url,isMain)=>{if(isMain)this.contextChanged()});
     wc.on('will-navigate',(e,url)=>{if(!allowedRemote(url))e.preventDefault()});wc.on('will-redirect',(e,url)=>{if(!allowedRemote(url))e.preventDefault()});
     wc.on('page-title-updated',(_,title)=>{const t=this.tabs.find(t=>t.id===id);if(t)t.title=title.slice(0,80);this.notify(this)});
     wc.on('render-process-gone',()=>{this.onChange();});
     try{await wc.loadURL(url)}catch{if(wc.isDestroyed())throw Error('抖音窗口已关闭')}
     return wc;
   }
-  select(id:string){if(!this.tabs.some(t=>t.id===id))return;this.active=id;this.resize();this.notify(this);}
-  closeTab(id:string){if(this.mode==='collector')return;const t=this.tabs.find(t=>t.id===id);if(!t)return;this.window.contentView.removeChildView(t.view);t.view.webContents.close();this.tabs=this.tabs.filter(x=>x!==t);if(this.active===id)this.active=this.tabs.at(-1)?.id||'';this.resize();this.notify(this);}
+  select(id:string){if(!this.tabs.some(t=>t.id===id))return;if(this.active!==id)this.contextChanged();this.active=id;this.resize();this.notify(this);}
+  closeTab(id:string){if(this.mode==='collector')return;const t=this.tabs.find(t=>t.id===id);if(!t)return;this.contextChanged();this.window.contentView.removeChildView(t.view);t.view.webContents.close();this.tabs=this.tabs.filter(x=>x!==t);if(this.active===id)this.active=this.tabs.at(-1)?.id||'';this.resize();this.notify(this);}
   resize(){const [width,height]=this.window.getContentSize();for(const t of this.tabs){t.view.setVisible(t.id===this.active);t.view.setBounds({x:0,y:92,width,height:Math.max(0,height-92)});}}
   show(){this.window.show();this.window.focus();}
   destroy(){(this.window as any).__quitting=true;for(const t of this.tabs)t.view.webContents.close();this.window.destroy();}
   state(){return {mode:this.mode,active:this.active,tabs:this.tabs.map(t=>({id:t.id,title:t.title}))};}
 }
 export class DouyinTransport implements Transport {
+  private queue:Promise<unknown>=Promise.resolve();
+  exclusive<T>(fn:()=>Promise<T>):Promise<T>{const next=this.queue.then(fn,fn);this.queue=next.catch(()=>{});return next}
   constructor(public host:BrowserHost){}
   async ensure(){let wc=this.host.tabs.find(t=>t.id==='collector')?.view.webContents;if(!wc||wc.isDestroyed())wc=await this.host.add('https://www.douyin.com/user/self?showTab=post','抖音登录与采集','collector');return wc;}
   show(){this.host.select('collector');this.host.show();}
   private async request(path:string,params:Record<string,string>={}){
+    return this.exclusive(async()=>{
     const wc=await this.ensure();if(new URL(wc.getURL()).origin!=='https://www.douyin.com')await wc.loadURL('https://www.douyin.com/user/self?showTab=post');
     let result:any;try{result=await wc.executeJavaScript('('+pageRequest.toString()+')('+JSON.stringify(path)+','+JSON.stringify({...baseParams,...params})+')')}catch{throw new CollectError('NETWORK','抖音页面暂时无法读取')}
     return checkPageResult(result);
+    });
   }
   async owner(){if(await this.challenge())throw new CollectError('CAPTCHA','需要先完成抖音验证');return parseOwner(await this.request(SELF));}
   async following(owner:User,offset:number,time:number){return parseFollowing(await this.request(FOLLOWING,{user_id:owner.uid,sec_user_id:owner.sec_uid,offset:String(offset),max_time:String(time),count:'20'}));}

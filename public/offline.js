@@ -12,5 +12,5 @@
   if(method==='exportReview'){download({version:1,account_uid:data.summary.account_uid,exported_at:new Date().toISOString(),review},'抖音使用记录.json');return true}
   throw Error('此操作请在桌面软件中使用');
  }};
- for(const id of ['login','connect','refresh','pause','resume','verified','import-review','export-format','export'])document.getElementById(id).hidden=true;
+ for(const id of ['login','connect','refresh','pause','resume','verified','import-review','export-format','export','refresh-groups','group-status'])document.getElementById(id).hidden=true;
 })();

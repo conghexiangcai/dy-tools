@@ -1,7 +1,7 @@
 'use strict';
 const $=id=>document.getElementById(id),fmt=n=>n===null||n===undefined?'未知':Number(n).toLocaleString('zh-CN'),date=s=>s?new Date(s).toLocaleString('zh-CN',{hour12:false}):'尚未更新';
 const defaults=window.filterDefaults,ids=Object.keys(defaults),size=50;
-let rows=[],summary={},byId=new Map(),owner='',selected=new Set(),opened=new Set(),lastBatch=[],filtered=[],page=0,task={},batchBusy=false,loading=false,loadAgain=false,saveChain=Promise.resolve(),usageRevision=0;
+let rows=[],groupRows=[],summary={},byId=new Map(),owner='',selected=new Set(),opened=new Set(),lastBatch=[],filtered=[],page=0,task={},batchBusy=false,loading=false,loadAgain=false,saveChain=Promise.resolve(),usageRevision=0;
 const settings=()=>Object.fromEntries(ids.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value]));
 function error(message){$('app-error').textContent=message||'';$('app-error').hidden=!message;}
 function write(delta){const account=owner;usageRevision++;if(!account)return Promise.resolve();saveChain=saveChain.then(()=>desktop.call('review',{owner_uid:account,delta})).catch(e=>error('使用记录保存失败：'+e.message));return saveChain;}
@@ -15,7 +15,8 @@ function apply(reset=true){
     const labels=[];for(const [id,label,op] of [['fans','粉丝','<'],['fans-min','粉丝','>'],['works-limit','作品','<'],['works-min','作品','>']])if(String(s[id]).trim()!=='')labels.push(label+' '+op+' '+fmt(Number(s[id])));if(s['following-greater'])labels.push('关注 > 粉丝');
     $('rule').textContent=labels.length?labels.join(s.logic==='or'?'，或 ':'，且 '):'未启用数值条件，显示全部账号。';
     const needle=String(s.search).trim().toLowerCase();
-    filtered=rows.map(r=>({r,age:window.latestAge(r),...window.classifyRow(r,s)})).filter(x=>{
+    const source=/^\d+$/.test(String(s['group-filter']))?[...rows,...groupRows]:rows;
+    filtered=source.filter(r=>window.matchesGroup(r,String(s['group-filter']))).map(r=>({r,age:window.latestAge(r),...window.classifyRow(r,s)})).filter(x=>{
       const r=x.r;return (!needle||(r.nickname+' '+r.account).toLowerCase().includes(needle))&&(!s.decision||x.state===s.decision)&&(!s.mutual||(s.mutual==='yes'?r.mutual_follow===true:s.mutual==='no'?r.mutual_follow===false:r.mutual_follow===null))&&(!s['works-state']||(s['works-state']==='known'?r.works_count!==null:r.works_count===null))&&(!s['opened-state']||(s['opened-state']==='opened'?opened.has(r.uid):!opened.has(r.uid)));
     }).filter(x=>window.matchesAge(x.age,s));
     const [field,dir]=String(s.sort).split('_'),key={difference:'following_minus_followers',fans:'follower_count',works:'works_count',following:'following_count'}[field]||'following_minus_followers';
@@ -46,7 +47,9 @@ function render(){
     const works=cell(tr,fmt(r.works_count),'number');works.title=(r.works_count===null?'作品数未知：'+({private:'私密账号',privacy_unknown:'隐私状态未知',not_checked:'尚未采集',request_failed:'未能读取',conflict:'来源冲突',missing_count:'接口未返回数量'}[r.works_status]||'尚未核实'):'主页详情已读取')+' · '+date(r.checked_at);
     const pill=document.createElement('span');pill.className='pill '+(r.mutual_follow===true?'mutual':r.mutual_follow===null?'unknown':'');pill.textContent=r.mutual_follow===true?'互关':r.mutual_follow===false?'未互关':'未知';cell(tr,'').append(pill);
     const c=cell(tr,'','conditions');for(const label of x.matched.length?x.matched:[x.state==='pending'?'数据未知，待确认':$('rule').textContent.startsWith('未启用')?'不限':'未命中']){const span=document.createElement('span');span.textContent=label;c.append(span)}
-    cell(tr,r.following_state,'state');const times=cell(tr,'','video-times');if(r.recent_video_times?.length){for(const value of r.recent_video_times.slice(0,3)){const line=document.createElement('div');line.textContent=new Date(value).toLocaleString('sv-SE',{timeZone:'Asia/Shanghai',hour12:false});times.append(line)}const ago=document.createElement('small');ago.textContent='最新距今 '+x.age+' 天';times.append(ago)}else times.textContent=r.recent_videos_status==='empty'?'无作品':r.recent_videos_status==='private'?'未知（私密）':['unknown','conflict'].includes(r.recent_videos_status)?'未知（未能可靠读取）':'尚未获取';
+    const gc=cell(tr,'','group-tags');gc.title='分组读取时间：'+date(r.groups_checked_at);if(r.groups_status!=='known')gc.textContent='未知';else if(!r.groups?.length)gc.textContent='未分组';else for(const g of r.groups){const tag=document.createElement('span');tag.className='group-tag';tag.textContent=g.name;gc.append(tag)}if(r.groups_stale){const stale=document.createElement('small');stale.textContent='未更新 · 保留上次结果';gc.append(stale)}
+    tr.insertBefore(gc,c);
+    const times=cell(tr,'','video-times');if(r.recent_video_times?.length){for(const value of r.recent_video_times.slice(0,3)){const line=document.createElement('div');line.textContent=new Date(value).toLocaleString('sv-SE',{timeZone:'Asia/Shanghai',hour12:false});times.append(line)}const ago=document.createElement('small');ago.textContent='最新距今 '+x.age+' 天';times.append(ago)}else times.textContent=r.recent_videos_status==='empty'?'无作品':r.recent_videos_status==='private'?'未知（私密）':['unknown','conflict'].includes(r.recent_videos_status)?'未知（未能可靠读取）':'尚未获取';
     cell(tr,opened.has(r.uid)?'已请求打开主页':'尚未打开','state');cell(tr,'').append(profileLink(r));$('rows').append(tr);
   }
   if(!filtered.length){const tr=document.createElement('tr'),td=cell(tr,$('filter-error').hidden?(!owner?'暂无本地名单，请登录抖音后点击更新数据':'没有符合当前筛选条件的账号'):'请修正筛选条件','empty');td.colSpan=12;$('rows').append(tr)}
@@ -63,10 +66,11 @@ async function openBatch(ids){
 async function reload(){
   if(loading){loadAgain=true;return;}loading=true;
   try{
-    await saveChain;const data=await desktop.call('snapshot');const changed=owner!==data.summary.account_uid;owner=data.summary.account_uid;summary=data.summary;rows=data.rows;byId=new Map(rows.map(r=>[r.uid,r]));
+    await saveChain;const data=await desktop.call('snapshot');const changed=owner!==data.summary.account_uid;owner=data.summary.account_uid;summary=data.summary;rows=data.rows;groupRows=data.group_rows||[];byId=new Map([...rows,...groupRows].map(r=>[r.uid,r]));
+    fillGroups(data.group_catalog||[],changed?data.review.settings['group-filter']||'':$('group-filter').value);
     if(changed){selected=new Set(data.review.selected);opened=new Set(data.review.opened);lastBatch=data.review.lastBatch;setSettings(data.review.settings);page=0;}
     $('total').textContent=fmt(rows.length);$('data-status').textContent=!owner?'暂无本地名单，请登录抖音后点击更新数据':summary.source_label+' · 本次主页更新 '+fmt(summary.profiles_refreshed)+' / '+fmt(summary.total)+' · 作品数未知 '+fmt(rows.length-summary.works_verified);$('data-status').classList.toggle('warning',!!owner&&!summary.refresh_complete);
-    $('import-review').disabled=!owner;$('export-review').disabled=!owner;$('export').disabled=!rows.length;
+    $('import-review').disabled=!owner;$('export-review').disabled=!owner;$('export').disabled=!rows.length;$('refresh-groups').disabled=!owner||!!task.groups?.busy;
     $('footer').textContent='名单同步：'+date(summary.following_snapshot_at)+' · 指标更新：'+date(summary.profiles_updated_at)+' · 视频时间更新：'+date(summary.videos_updated_at)+'。打开记录不表示已取关；手动取关后的变化将在下次更新时反映。';apply(false);if(changed)showBatch();
   }catch(e){error(e.message)}finally{loading=false;if(loadAgain){loadAgain=false;setTimeout(reload,100)}}
 }
@@ -75,7 +79,10 @@ function renderTask(t){
   const sec=task.etaSeconds,minutes=Math.ceil(sec/60),eta=sec===null||sec===undefined?'':` · 预计剩余 ${minutes<60?minutes+' 分钟':Math.floor(minutes/60)+' 小时 '+minutes%60+' 分钟'}（不含暂停与验证）`;
   $('task-status').textContent=(r?`${words[r.status]||r.status} · ${r.phase==='following'?p.total+' 个账号，'+r.pages+' 页':'详情 '+p.completed+' / '+p.total+' · 视频时间 '+(p.videos||0)+' / '+p.total} · ${r.message||''}`:'尚未开始更新，先登录抖音并检查连接')+eta+(task.notice?' · '+task.notice:'');
   $('progress').max=Math.max(1,p.total*2);$('progress').value=p.completed+(p.videos||0);$('refresh').disabled=!!task.busy;$('connect').disabled=!!task.busy;$('pause').disabled=!task.busy;$('resume').disabled=!!task.busy||!r||r.status==='completed';$('verified').hidden=!['waiting_verification','cooldown'].includes(r?.status);$('verified').disabled=!!task.busy;
+  if(task.groups)renderGroups(task.groups);
 }
+function renderGroups(g){$('refresh-groups').disabled=!owner||!!g.busy;$('group-status').textContent=g.message||g.error||(g.checked_at?'分组同步：'+date(g.checked_at):'分组尚未同步；可使用“所属分组”列的刷新按钮');if(g.waiting||g.countdown){$('verified').hidden=false;$('verified').disabled=!!g.busy}}
+function fillGroups(catalog,value){const select=$('group-filter');select.replaceChildren();const entries=[['','所属分组：全部'],['ungrouped','未分组'],['unknown','归属未知'],...catalog.map(g=>[g.id,g.name+'（'+g.member_count+' 人）'])];if(value&&!entries.some(([id])=>id===value))entries.push([value,'该分组已变更（请刷新）']);for(const [id,label] of entries){const option=document.createElement('option');option.value=id;option.textContent=label;select.append(option)}select.value=value;select.title='分组与粉丝、作品、互关、是否打开等现有筛选条件叠加；多组账号包含在各所属分组中。'}
 async function act(method,payload){error('');try{const data=await desktop.call(method,payload);renderTask(await desktop.call('state'));return data}catch(e){error(e.message);return null}}
 async function refreshImportedReview(account){
   // A native import dialog and IPC response can overlap with new local edits.
@@ -89,12 +96,13 @@ async function refreshImportedReview(account){
 }
 $('login').onclick=()=>act('login');$('connect').onclick=async()=>{const p=await act('probe');if(p){await reload();error(p.matched?'':`样本接口作品数 ${p.api_works}；主页数 ${p.page_works??'尚未读取'}，请查看样本页面。`)}};
 $('refresh').onclick=()=>act('start');$('pause').onclick=()=>act('pause');$('resume').onclick=()=>act('resume');$('verified').onclick=()=>act('verified');
+$('refresh-groups').onclick=()=>act('groupRefresh');
 $('export').onclick=()=>act('export',{format:$('export-format').value});$('export-review').onclick=async()=>{await saveChain;await act('exportReview')};$('import-review').onclick=async()=>{const account=owner;await saveChain;const r=await act('importReview');if(r)try{await refreshImportedReview(account)}catch(e){error('使用记录读取失败：'+e.message)}};
 function selectPage(value){const ids=pageRows().map(x=>x.r.uid);ids.forEach(id=>value?selected.add(id):selected.delete(id));write({select:{ids,value}});render()}
 $('select-page').onclick=()=>selectPage(true);$('unselect-page').onclick=()=>selectPage(false);$('check-page').onchange=()=>selectPage($('check-page').checked);$('clear-selection').onclick=()=>{selected.clear();write({clearSelected:true});render()};
 $('open-next').onclick=()=>openBatch(eligible().slice(0,Number($('batch-size').value)||5));$('reopen').onclick=()=>openBatch(lastBatch.filter(id=>byId.has(id)));$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};
 for(const id of ids)$(id).addEventListener(['search','fans','fans-min','works-limit','works-min','days-min','days-max'].includes(id)?'input':'change',()=>{if(id==='batch-size')updateActions();else apply();write({settings:settings()})});
 $('reset').onclick=()=>{setSettings(defaults);apply();write({settings:settings()})};
-desktop.onChange(e=>{if(e.task)renderTask({...e.task,notice:e.notice});if(e.version)reload()});
+desktop.onChange(e=>{if(e.task)renderTask({...e.task,notice:e.notice,groups:e.groups});if(e.groups)renderGroups(e.groups);if(e.version)reload()});
 setSettings(defaults);reload();desktop.call('state').then(renderTask).catch(e=>error(e.message));
 let calendarDay=Math.floor((Date.now()+28800000)/86400000);setInterval(()=>{const next=Math.floor((Date.now()+28800000)/86400000);if(next!==calendarDay){calendarDay=next;apply(false)}},60000);

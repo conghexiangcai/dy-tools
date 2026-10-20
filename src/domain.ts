@@ -3,7 +3,8 @@ export type Row = { uid: string; sec_uid: string; nickname: string; account: str
 export type Review = { selected: string[]; opened: string[]; lastBatch: string[]; settings: Record<string,string|boolean> };
 export type Status = 'running'|'paused'|'waiting_login'|'waiting_verification'|'cooldown'|'error'|'completed';
 export type Run = { id:string; owner_uid:string; phase:'following'|'profiles'|'videos'; status:Status; offset:number; max_time:number; pages:number; started_at:string; updated_at:string; snapshot_at:string|null; message:string; total_hint:number; error_uid:string|null };
-export const settingsDefaults: Record<string,string|boolean> = {fans:'10000','fans-min':'','works-limit':'20','works-min':'','days-min':'','days-max':'',logic:'or',mutual:'',decision:'match','works-state':'','opened-state':'',sort:'difference_desc','following-greater':false,search:'','batch-size':'5'};
+export const settingsDefaults: Record<string,string|boolean> = {fans:'10000','fans-min':'','works-limit':'20','works-min':'','days-min':'','days-max':'',logic:'or',mutual:'',decision:'match','works-state':'','opened-state':'','group-filter':'',sort:'difference_desc','following-greater':false,search:'','batch-size':'5'};
+export function matchesGroup(row:Pick<Row,'groups'|'groups_status'>,id:string){if(!id)return true;if(id==='unknown')return row.groups_status!=='known';if(id==='ungrouped')return row.groups_status==='known'&&Array.isArray(row.groups)&&row.groups.length===0;return row.groups_status==='known'&&Array.isArray(row.groups)&&row.groups.some((g:any)=>g.id===id)}
 export const uidValid = (s:unknown): s is string => typeof s==='string' && /^\d{1,32}$/.test(s);
 export const count = (x:unknown):number|null => typeof x==='number' && Number.isSafeInteger(x) && x>=0 ? x:null;
 export function cleanUser(x:any):User {

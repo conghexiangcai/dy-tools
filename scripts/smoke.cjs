@@ -11,10 +11,11 @@ function createFixture(){
  const users=Array.from({length:120},(_,i)=>({uid:String(10000+i),sec_uid:'MS4wLjABAAAA_TEST_'+i,nickname:'测试账号 '+i,unique_id:'test_'+i,secret:0,follow_status:1,follower_count:11000+i,following_count:20000+i,aweme_count:30}));
  store.addPage(run.id,users,{offset:120,max_time:0,pages:1},true);const at=Date.now();
  for(const [i,u] of users.entries()){store.saveRow(run.id,makeRow(u,u));store.saveVideos(run.id,u.uid,i<3?[1,2,3].map(n=>new Date(at-(n+i*10)*86400000).toISOString()):[],i<3?'verified':'unknown')}
+ const groupA='9223372036854775806',groupB='9223372036854775805',mapping=new Map(users.map((u,i)=>[u.uid,i<5?[groupA,groupB]:i<20?[groupA]:[]]));const extra={...users[0],uid:'90000',sec_uid:'MS4wLjABAAAA_EXTRA_90000',nickname:'分组补充账号'};mapping.set(extra.uid,[groupA]);store.groups.complete('100',[{id:groupA,name:'合成分组一',member_count:21},{id:groupB,name:'合成分组二',member_count:5}],mapping,new Map([[extra.uid,extra]]));
  store.update(run.id,{status:'completed'});fs.writeFileSync(offline,exportText(store.snapshot(),'html',path.join(root,'resources/report-template.html')));store.close();
 }
 async function launch(dataDir=profile,expected='120'){
- app=await _electron.launch({executablePath:packaged?.executable||require('electron'),args:[...(packaged?[]:[root]),'--data-dir='+dataDir],timeout:45000});
+ app=await _electron.launch({executablePath:packaged?.executable||require('electron'),args:[...(packaged?[]:[root]),'--data-dir='+dataDir,'--no-auto-groups'],timeout:120000});
  let p;for(let i=0;i<100;i++){p=app.windows().find(p=>p.url()==='app://local/index.html');if(p)break;await new Promise(r=>setTimeout(r,100))}
  assert.ok(p);await p.waitForFunction(expected=>document.getElementById('total')?.textContent===expected,expected);return p;
 }
@@ -36,6 +37,12 @@ async function launch(dataDir=profile,expected='120'){
  await p.locator('#days-min').fill('');await p.locator('#sort').selectOption('recency_desc');
  assert.ok((await p.locator('#rows .video-times').first().innerText()).includes('最新距今 21 天'));
  await p.locator('#sort').selectOption('difference_desc');
+ const headers=await p.locator('thead th').allTextContents();assert.ok(!headers.includes('关注状态'));assert.ok(headers.findIndex(x=>x.includes('所属分组'))<headers.indexOf('命中条件'));
+ await p.locator('#group-filter').selectOption('9223372036854775806');assert.equal(await p.locator('#match-count').textContent(),'20');
+ await p.locator('#group-filter').selectOption('9223372036854775805');assert.equal(await p.locator('#match-count').textContent(),'5');
+ await p.locator('#group-filter').selectOption('9223372036854775806');await p.locator('#fans-min').fill('');await p.locator('#works-min').fill('');assert.equal(await p.locator('#match-count').textContent(),'21');
+ await p.locator('#group-filter').selectOption('ungrouped');assert.equal(await p.locator('#match-count').textContent(),'100');
+ await p.locator('#group-filter').selectOption('');await p.locator('#fans-min').fill('10000');await p.locator('#works-min').fill('20');
  const counts=await p.locator('#rows tr').evaluateAll(trs=>trs.map(tr=>[tr.children[2]?.textContent,tr.children[5]?.textContent]));
  assert.ok(counts.length);assert.ok(counts.every(([fans,works])=>Number(fans.replace(/,/g,''))>10000&&Number(works.replace(/,/g,''))>20));
  await p.locator('#select-page').click();assert.equal(await p.locator('#selected-count').textContent(),'50');
@@ -70,5 +77,6 @@ async function launch(dataDir=profile,expected='120'){
  const offlinePagePromise=app.waitForEvent('window');await app.evaluate(async({BrowserWindow},file)=>{const win=new BrowserWindow({show:false,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});await win.loadFile(file)},offline);
  const exported=await offlinePagePromise;await exported.waitForFunction(()=>document.getElementById('total')?.textContent==='120');
  await exported.locator('#fans').fill('');await exported.locator('#works-limit').fill('');await exported.locator('#days-max').fill('10');assert.equal(await exported.locator('#match-count').textContent(),'1');assert.equal(await exported.locator('#rows .video-times div').count(),3);
+ await exported.locator('#days-max').fill('');await exported.locator('#group-filter').selectOption('9223372036854775806');assert.equal(await exported.locator('#match-count').textContent(),'21');
  await app.close();app=null;console.log('PASS: 首次及重复启动空名单、未登录筛选无保存错误、合成快照、严格上下限、时间筛选排序及三行展示、跨页勾选、重启恢复、是否打开、搜索、导入时并发编辑、窗口隔离和离线 HTML。');
 })().catch(async e=>{console.error(e);if(app)await app.close().catch(()=>{});process.exitCode=1});

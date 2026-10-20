@@ -15,7 +15,7 @@ fs.copyFileSync(path.join(root,'README.md'),path.join(target,'使用说明.md'))
 fs.copyFileSync(path.join(root,'LICENSE-NOTICE.md'),path.join(target,'许可说明.md'));
 const sourceBase=path.join(release,'抖音关注清单-'+pkg.version+'-源码');const source=fs.existsSync(sourceBase)?sourceBase+'-'+Date.now():sourceBase;fs.mkdirSync(source);
 for(const file of ['src','public','package.json','package-lock.json','tsconfig.json','README.md','LICENSE-NOTICE.md','.gitignore'])fs.cpSync(path.join(root,file),path.join(source,file),{recursive:true});
-fs.mkdirSync(path.join(source,'scripts'));for(const file of ['assets.cjs','package.cjs','smoke.cjs'])fs.copyFileSync(path.join(root,'scripts',file),path.join(source,'scripts',file));
+fs.mkdirSync(path.join(source,'scripts'));for(const file of ['assets.cjs','package.cjs','smoke.cjs','group-smoke.cjs','group-fixture.cjs'])fs.copyFileSync(path.join(root,'scripts',file),path.join(source,'scripts',file));
 fs.mkdirSync(path.join(source,'resources'));for(const file of templates)fs.copyFileSync(path.join(root,'resources',file),path.join(source,'resources',file));
 // Copy only explicit source folders; databases, login sessions, output and node_modules are excluded.
 const quote=s=>"'"+s.replace(/'/g,"''")+"'";
