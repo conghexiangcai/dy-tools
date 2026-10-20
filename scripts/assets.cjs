@@ -4,6 +4,7 @@ const root=path.resolve(__dirname,'..');
 const template=fs.readFileSync(path.join(root,'resources/report-template.html'),'utf8');
 let css=template.match(/<style>([\s\S]*?)<\/style>/)[1];
 css+='\n.appbar{margin:18px 30px 0;background:white;border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.appbar .status{width:100%;font-size:13px;color:#526958}.appbar .error{width:100%;margin:0}progress{height:10px;accent-color:var(--green);width:180px}.appbar .spacer{flex:1}.appbar small{color:var(--muted)}.video-times{min-width:150px;white-space:nowrap;font-size:11px;line-height:1.65}.video-times small{display:block;color:var(--muted)}';
+css+='\n.person-name{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px}.person-name strong{min-width:0;overflow-wrap:anywhere}.private-badge{display:inline-block;flex-shrink:0;padding:1px 6px;border:1px solid #e6d5b5;border-radius:5px;background:#fbf3e5;color:#79541f;font-size:10px;font-weight:500;line-height:1.6;white-space:nowrap}';
 fs.writeFileSync(path.join(root,'public/style.css'),css);
 const domain=require('../dist/domain.js');
 fs.writeFileSync(path.join(root,'public/rules.js'),'window.filterDefaults='+JSON.stringify(domain.settingsDefaults)+';\nwindow.classifyRow='+domain.classify.toString()+';\nwindow.latestAge='+domain.latestAge.toString()+';\nwindow.matchesAge='+domain.matchesAge.toString()+';\n');
