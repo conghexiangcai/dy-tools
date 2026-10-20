@@ -4,9 +4,10 @@ import {mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {User,Row,Run,Review,makeRow,settingsDefaults,sanitizeSettings,cleanIds,uidValid,classify,accountPrivacy} from './domain';
 import {GroupStore} from './group-store';
+import {ToolStore} from './tool-store';
 export class Store {
   db:DatabaseSync;
-  groups:GroupStore;
+  groups:GroupStore;tools:ToolStore;
   constructor(path:string){
     mkdirSync(dirname(path),{recursive:true});this.db=new DatabaseSync(path);
     this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
@@ -19,7 +20,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS review(owner_uid TEXT NOT NULL,uid TEXT NOT NULL,selected INTEGER DEFAULT 0,opened INTEGER DEFAULT 0,PRIMARY KEY(owner_uid,uid));
       CREATE TABLE IF NOT EXISTS review_meta(owner_uid TEXT PRIMARY KEY,settings TEXT DEFAULT '{}',last_batch TEXT DEFAULT '[]');
       CREATE TABLE IF NOT EXISTS history(owner_uid TEXT NOT NULL,uid TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(owner_uid,uid));`);
-    this.groups=new GroupStore(this.db);
+    this.groups=new GroupStore(this.db);this.tools=new ToolStore(this.db);
     if(!(this.db.prepare('PRAGMA table_info(profiles)').all() as any[]).some(c=>c.name==='videos_done'))this.db.exec('ALTER TABLE profiles ADD COLUMN videos_done INTEGER NOT NULL DEFAULT 0');
     this.db.exec("UPDATE runs SET phase='videos',status='paused',message='已有详情保留，点击继续补齐最新视频时间' WHERE status='completed' AND id!='seed-v3' AND id IN (SELECT active_run FROM accounts) AND EXISTS (SELECT 1 FROM profiles p WHERE p.run_id=runs.id AND p.done=1 AND p.videos_done=0)");
     this.db.prepare("UPDATE runs SET status='paused',message='上次任务中断，点击继续恢复' WHERE status IN ('running','cooldown')").run();
@@ -49,13 +50,14 @@ export class Store {
   snapshot(owner=this.owner()){
     const a=this.db.prepare('SELECT * FROM accounts WHERE uid=?').get(owner) as any;
     const run=a?.active_run?this.run(a.active_run):null;
-    const rows:Row[]=run?(this.db.prepare('SELECT m.data member,p.data profile FROM members m LEFT JOIN profiles p ON p.run_id=m.run_id AND p.uid=m.uid WHERE m.run_id=? ORDER BY m.rowid').all(run.id) as any[]).map(x=>{const member=JSON.parse(x.member),row=x.profile?JSON.parse(x.profile):makeRow(member);return {...row,is_private:accountPrivacy(row,member)}}):[];
+    let rows:Row[]=run?(this.db.prepare('SELECT m.data member,p.data profile FROM members m LEFT JOIN profiles p ON p.run_id=m.run_id AND p.uid=m.uid WHERE m.run_id=? ORDER BY m.rowid').all(run.id) as any[]).map(x=>{const member=JSON.parse(x.member),row=x.profile?JSON.parse(x.profile):makeRow(member);return {...row,is_private:accountPrivacy(row,member)}}):[];
+    const ignored=this.tools.ignored(owner),hidden=new Set(ignored.map(r=>r.uid)),removed=this.tools.removed(owner,run?.snapshot_at||null);rows=rows.filter(r=>!hidden.has(r.uid)&&!removed.has(r.uid));
     const memberships=this.groups.rows(owner);for(const row of rows)Object.assign(row,memberships.get(row.uid)||{groups:[],groups_status:'unknown',groups_checked_at:null,groups_stale:false});
-    const knownIds=new Set(rows.map(r=>r.uid)),groupRows=this.groups.users(owner).filter(r=>!knownIds.has(r.uid));for(const row of groupRows)Object.assign(row,memberships.get(row.uid)||{groups:[],groups_status:'unknown'});
+    const knownIds=new Set(rows.map(r=>r.uid)),groupRows=this.groups.users(owner).filter(r=>!knownIds.has(r.uid)&&!hidden.has(r.uid)&&!removed.has(r.uid));for(const row of groupRows)Object.assign(row,memberships.get(row.uid)||{groups:[],groups_status:'unknown'});
     const decisions=rows.map(r=>classify(r,settingsDefaults).state);
     const profileTime=rows.reduce((latest,r)=>Math.max(latest,Date.parse(r.checked_at||'')||0),0);
     const videoTime=rows.reduce((latest,r)=>Math.max(latest,Date.parse(r.videos_checked_at||'')||0),0);
-    return {group_catalog:this.groups.state(owner).groups,group_rows:groupRows,summary:{version:4,account_uid:owner,account_name:a?.name||'',total:rows.length,source_label:run?.id==='seed-v3'?'导入的历史关注名单':'当前关注名单（最近一次完整同步）',following_snapshot_at:run?.snapshot_at||null,profiles_updated_at:profileTime?new Date(profileTime).toISOString():run?.id==='seed-v3'?run.updated_at:null,videos_updated_at:videoTime?new Date(videoTime).toISOString():null,generated_at:new Date().toISOString(),profiles_refreshed:run?this.progress(run.id).completed:0,refresh_complete:run?.status==='completed',works_verified:rows.filter(r=>r.works_count!==null).length,matches:decisions.filter(x=>x==='match').length,pending:decisions.filter(x=>x==='pending').length,excluded:decisions.filter(x=>x==='excluded').length,mutual_count:rows.filter(r=>r.mutual_follow===true).length},rows,review:this.getReview(owner)};
+    return {ignored_count:ignored.length,group_catalog:this.groups.state(owner).groups,group_rows:groupRows,summary:{version:4,account_uid:owner,account_name:a?.name||'',total:rows.length,source_label:run?.id==='seed-v3'?'导入的历史关注名单':'当前关注名单（最近一次完整同步）',following_snapshot_at:run?.snapshot_at||null,profiles_updated_at:profileTime?new Date(profileTime).toISOString():run?.id==='seed-v3'?run.updated_at:null,videos_updated_at:videoTime?new Date(videoTime).toISOString():null,generated_at:new Date().toISOString(),profiles_refreshed:rows.filter(r=>!!r.checked_at).length,refresh_complete:run?.status==='completed',works_verified:rows.filter(r=>r.works_count!==null).length,matches:decisions.filter(x=>x==='match').length,pending:decisions.filter(x=>x==='pending').length,excluded:decisions.filter(x=>x==='excluded').length,mutual_count:rows.filter(r=>r.mutual_follow===true).length},rows,review:this.getReview(owner)};
   }
   getReview(owner=this.owner()):Review{
     const all=this.db.prepare('SELECT * FROM review WHERE owner_uid=?').all(owner) as any[];

@@ -42,7 +42,7 @@ function render(){
     const cb=document.createElement('input');cb.type='checkbox';cb.checked=selected.has(r.uid);cb.setAttribute('aria-label','选择 '+r.nickname+' '+r.account);cb.onchange=()=>{cb.checked?selected.add(r.uid):selected.delete(r.uid);tr.classList.toggle('selected',cb.checked);write({select:{ids:[r.uid],value:cb.checked}});updateActions()};cell(tr,'').append(cb);
     const person=cell(tr,'','person'),heading=document.createElement('div'),name=document.createElement('strong'),account=document.createElement('small');heading.className='person-name';name.textContent=r.nickname||'未命名账号';heading.append(name);
     if(window.accountPrivacy(r)===true){const badge=document.createElement('span');badge.className='private-badge';badge.textContent='🔒 私密账号';badge.title='最近一次采集确认该账号为私密账号';heading.append(badge)}
-    account.textContent=r.account;person.append(heading,account);
+    account.textContent=r.account;person.append(heading,account);if($('ignore-selected')){const hide=document.createElement('button');hide.className='ignore-account';hide.textContent='忽视';hide.title='只在本地隐藏，不取关';hide.onclick=()=>ignoreAccounts([r.uid]);heading.append(hide)}
     cell(tr,fmt(r.follower_count),'number');cell(tr,fmt(r.following_count),'number');const diff=r.following_minus_followers;cell(tr,diff===null?'未知':(diff>0?'+':'')+fmt(diff),'number '+(diff>0?'positive':'negative'));
     const works=cell(tr,fmt(r.works_count),'number');works.title=(r.works_count===null?'作品数未知：'+({private:'私密账号',privacy_unknown:'隐私状态未知',not_checked:'尚未采集',request_failed:'未能读取',conflict:'来源冲突',missing_count:'接口未返回数量'}[r.works_status]||'尚未核实'):'主页详情已读取')+' · '+date(r.checked_at);
     const pill=document.createElement('span');pill.className='pill '+(r.mutual_follow===true?'mutual':r.mutual_follow===null?'unknown':'');pill.textContent=r.mutual_follow===true?'互关':r.mutual_follow===false?'未互关':'未知';cell(tr,'').append(pill);
@@ -108,3 +108,11 @@ setSettings(defaults);reload();desktop.call('state').then(renderTask).catch(e=>e
 let calendarDay=Math.floor((Date.now()+28800000)/86400000);setInterval(()=>{const next=Math.floor((Date.now()+28800000)/86400000);if(next!==calendarDay){calendarDay=next;apply(false)}},60000);
 
 if($('fan-open'))$('fan-open').onclick=()=>act('fanOpen');
+
+async function ignoreAccounts(ids){try{await saveChain;await desktop.call('toolsIgnore',{owner,ids});await reload()}catch(e){error(e.message)}}
+if($('toolbox-home'))$('toolbox-home').onclick=async()=>{await saveChain;await desktop.call('navigate',{page:'home'})};
+if($('ignored-list'))$('ignored-list').onclick=async()=>{await saveChain;await desktop.call('navigate',{page:'ignored'})};
+if($('ignore-selected'))$('ignore-selected').onclick=()=>ignoreAccounts([...selected].filter(id=>byId.has(id)));
+async function prepareUnfollow(scope){error('');try{if(scope==='filtered'&&!$('filter-error').hidden)throw Error('请先修正筛选条件');await saveChain;const r=await desktop.call('toolsPreview',{owner,scope,group:$('group-filter').value,settings:settings()});await desktop.call('navigate',{page:'tasks',run:r.id})}catch(e){error(e.message)}}
+if($('unfollow-filtered'))$('unfollow-filtered').onclick=()=>prepareUnfollow('filtered');
+if($('unfollow-group'))$('unfollow-group').onclick=()=>prepareUnfollow('group');

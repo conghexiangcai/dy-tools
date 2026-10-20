@@ -6,14 +6,15 @@ import {fanExport,lookupKind} from './fanclub';
 import {appURL} from './browser';
 export class FanUI {
   window:BrowserWindow|null=null;
-  constructor(public service:FanService,private preload:string,private stopCollector:()=>Promise<void>,private login:()=>Promise<void>,private connect:()=>Promise<void>,private profile:(uid:string,sec:string,nickname:string)=>Promise<void>){}
+  constructor(public service:FanService,private preload:string,private stopCollector:()=>Promise<void>,private login:()=>Promise<void>,private connect:()=>Promise<void>,private profile:(uid:string,sec:string,nickname:string)=>Promise<void>,private home?:()=>Promise<void>){}
   owns(id:number){return this.window?.webContents.id===id}
   async open(){if(this.window&&!this.window.isDestroyed()){this.window.show();this.window.focus();return}this.window=new BrowserWindow({width:1350,height:870,minWidth:900,minHeight:650,title:'粉丝团查询 · 抖音工具箱',show:false,autoHideMenuBar:true,webPreferences:{preload:this.preload,contextIsolation:true,nodeIntegration:false,sandbox:true}});this.window.webContents.setWindowOpenHandler(()=>({action:'deny'}));this.window.webContents.on('will-navigate',e=>e.preventDefault());this.window.on('closed',()=>{this.window=null});await this.window.loadURL(appURL+'fanclub.html');this.window.show()}
   notify(){if(this.window&&!this.window.isDestroyed())this.window.webContents.send('desktop:change',{fanclub:true})}
   destroy(){this.service.pause();this.window?.destroy();this.window=null}
   async command(method:string,p:any){
-    if(!['fanState','fanLogin','fanConnect'].includes(method)&&p?.owner!==this.service.state().owner)throw Error('页面登录账号已变更，请重新操作');
+    if(!['fanState','fanLogin','fanConnect','fanHome'].includes(method)&&p?.owner!==this.service.state().owner)throw Error('页面登录账号已变更，请重新操作');
     switch(method){
+      case 'fanHome':await this.home?.();this.window?.hide();return true;
       case 'fanState':return this.service.state();
       case 'fanLogin':this.service.pause();await this.stopCollector();await this.login();return true;
       case 'fanConnect':this.service.pause();await this.stopCollector();await this.connect();return true;

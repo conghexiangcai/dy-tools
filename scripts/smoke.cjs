@@ -16,8 +16,8 @@ function createFixture(){
 }
 async function launch(dataDir=profile,expected='120'){
  app=await _electron.launch({executablePath:packaged?.executable||require('electron'),args:[...(packaged?[]:[root]),'--data-dir='+dataDir,'--no-auto-groups'],timeout:120000});
- let p;for(let i=0;i<100;i++){p=app.windows().find(p=>p.url()==='app://local/index.html');if(p)break;await new Promise(r=>setTimeout(r,100))}
- assert.ok(p);await p.waitForFunction(expected=>document.getElementById('total')?.textContent===expected,expected);return p;
+ let p;for(let i=0;i<100;i++){p=app.windows().find(p=>p.url()==='app://local/toolbox.html?tool=home');if(p)break;await new Promise(r=>setTimeout(r,100))}
+ assert.ok(p);await p.locator('[data-tool=following]').click();await p.waitForURL('app://local/index.html');await p.waitForFunction(expected=>document.getElementById('total')?.textContent===expected,expected);return p;
 }
 (async()=>{
  const fresh=path.join(out,'fresh-'+Date.now());let p=await launch(fresh,'0'),errors=[];p.on('pageerror',e=>errors.push(e.message));

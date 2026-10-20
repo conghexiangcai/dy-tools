@@ -35,3 +35,5 @@ $('all').onclick=()=>selectAll(true);$('none').onclick=()=>selectAll(false);
 desktop.onChange(e=>{if(e.fanclub)void reload()});void reload();
 
 $('anchor-input').oninput=renderCandidates;$('anchor-mode').onchange=()=>{$('anchor-candidates').hidden=true};$('target-mode').onchange=()=>{$('target-input').oninput()};
+
+if(document.getElementById('toolbox-home'))document.getElementById('toolbox-home').onclick=()=>desktop.call('fanHome').catch(()=>{});
