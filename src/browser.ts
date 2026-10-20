@@ -9,22 +9,23 @@ const delay=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 export const appURL='app://local/';
 export function allowedRemote(url:string){try{const u=new URL(url);return u.protocol==='https:'&&['douyin.com','iesdouyin.com','bytedance.com','snssdk.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false}}
 export class BrowserHost {
-  window:BrowserWindow;tabs:{id:string;title:string;view:WebContentsView}[]=[];active='';onChange=()=>{};onContextChange=()=>{};revision=0;
+  window:BrowserWindow;tabs:{id:string;title:string;view:WebContentsView;pending?:string}[]=[];active='';onChange=()=>{};onContextChange=()=>{};revision=0;
   profileMeta:(sec:string)=>{nickname:string;is_private?:boolean|null}|undefined=()=>undefined;
   contextChanged(){this.revision++;this.onContextChange()}
   constructor(public mode:'collector'|'review',preload:string,private notify:(host:BrowserHost)=>void){
     this.window=new BrowserWindow({width:1160,height:820,minWidth:700,minHeight:500,show:false,title:mode==='collector'?'抖音登录与验证':'手动查看主页',autoHideMenuBar:true,webPreferences:{preload,contextIsolation:true,nodeIntegration:false,sandbox:true}});
     this.window.loadURL(appURL+'browser.html?mode='+mode);this.window.on('resize',()=>this.resize());
-    this.window.on('close',e=>{if(!(this.window as any).__quitting){e.preventDefault();this.window.hide();}});
+    this.window.on('close',e=>{if(!(this.window as any).__quitting){e.preventDefault();if(this.mode==='review')this.closeAll();this.window.hide();}});
+    this.window.on('hide',()=>this.audio());this.window.on('show',()=>this.audio());
     this.window.webContents.on('did-finish-load',()=>this.notify(this));this.window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
     this.window.webContents.on('will-navigate',e=>e.preventDefault());
   }
   get current(){return this.tabs.find(t=>t.id===this.active)?.view.webContents;}
-  async add(url:string,title:string,id:string){
+  async add(url:string,title:string,id:string,options:{lazy?:boolean;activate?:boolean}={}){
     if(!allowedRemote(url))throw Error('只支持打开抖音网页');const existing=this.tabs.find(t=>t.id===id);
-    if(existing){this.select(id);this.show();return existing.view.webContents;}
-    const view=new WebContentsView({webPreferences:{partition:'persist:douyin-login',contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
-    this.tabs.push({id,title,view});this.window.contentView.addChildView(view);this.select(id);
+    if(existing){if(options.activate!==false)this.select(id);return existing.view.webContents;}
+    const view=new WebContentsView({webPreferences:{partition:'persist:douyin-login',contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:this.mode==='review'}});
+    const tab={id,title,view,pending:options.lazy?url:undefined};this.tabs.push(tab);this.window.contentView.addChildView(view);
     const wc=view.webContents;protectNavigation(wc);wc.setWindowOpenHandler(({url})=>{if(allowedRemote(url))void this.add(url,'抖音页面',String(Date.now())).catch(()=>{});return {action:'deny'};});
     wc.on('did-start-navigation',(_e,_url,_inPlace,isMain)=>{if(isMain){this.contextChanged();this.notify(this)}});
     wc.on('did-navigate-in-page',(_e,_url,isMain)=>{if(isMain){this.contextChanged();this.notify(this)}});
@@ -32,14 +33,19 @@ export class BrowserHost {
     wc.on('will-navigate',(e,url)=>{if(!allowedRemote(url))e.preventDefault()});wc.on('will-redirect',(e,url)=>{if(!allowedRemote(url))e.preventDefault()});
     wc.on('page-title-updated',(_,title)=>{const t=this.tabs.find(t=>t.id===id);if(t)t.title=title.slice(0,80);this.notify(this)});
     wc.on('render-process-gone',()=>{this.onChange();});
-    try{await wc.loadURL(url)}catch{if(wc.isDestroyed())throw Error('抖音窗口已关闭')}
+    if(options.activate!==false)this.select(id);else this.resize();
+    if(!options.lazy)try{await wc.loadURL(url)}catch{if(wc.isDestroyed())throw Error('抖音窗口已关闭')}
+    this.notify(this);
     return wc;
   }
-  select(id:string){if(!this.tabs.some(t=>t.id===id))return;if(this.active!==id)this.contextChanged();this.active=id;this.resize();this.notify(this);}
-  closeTab(id:string){if(this.mode==='collector')return;const t=this.tabs.find(t=>t.id===id);if(!t)return;this.contextChanged();this.window.contentView.removeChildView(t.view);t.view.webContents.close();this.tabs=this.tabs.filter(x=>x!==t);if(this.active===id)this.active=this.tabs.at(-1)?.id||'';this.resize();this.notify(this);}
-  resize(){const [width,height]=this.window.getContentSize();for(const t of this.tabs){t.view.setVisible(t.id===this.active);t.view.setBounds({x:0,y:92,width,height:Math.max(0,height-92)});}}
+  select(id:string){const t=this.tabs.find(t=>t.id===id);if(!t)return;if(this.active!==id)this.contextChanged();this.active=id;this.resize();if(t.pending){const url=t.pending;t.pending=undefined;void t.view.webContents.loadURL(url).catch(()=>{});}this.notify(this);}
+  private dispose(t:BrowserHost['tabs'][number]){const wc=t.view.webContents;this.window.contentView.removeChildView(t.view);if(!wc.isDestroyed()){wc.setAudioMuted(true);wc.stop();wc.close({waitForBeforeUnload:false});}}
+  closeTab(id:string){if(this.mode==='collector')return;const t=this.tabs.find(t=>t.id===id);if(!t)return;this.contextChanged();this.tabs=this.tabs.filter(x=>x!==t);this.dispose(t);if(this.active===id){this.active='';if(this.tabs.length)this.select(this.tabs.at(-1)!.id)}this.resize();this.notify(this);if(!this.tabs.length)this.window.hide();}
+  closeAll(){if(this.mode!=='review')return;this.contextChanged();const tabs=this.tabs;this.tabs=[];this.active='';for(const t of tabs)this.dispose(t);this.notify(this);}
+  private audio(){for(const t of this.tabs)if(!t.view.webContents.isDestroyed())t.view.webContents.setAudioMuted(!this.window.isVisible()||t.id!==this.active);}
+  resize(){const [width,height]=this.window.getContentSize();for(const t of this.tabs){t.view.setVisible(t.id===this.active);t.view.setBounds({x:0,y:92,width,height:Math.max(0,height-92)});}this.audio();}
   show(){this.window.show();this.window.focus();}
-  destroy(){(this.window as any).__quitting=true;for(const t of this.tabs)t.view.webContents.close();this.window.destroy();}
+  destroy(){(this.window as any).__quitting=true;for(const t of this.tabs)this.dispose(t);this.tabs=[];this.window.destroy();}
   state(){let profile:ReturnType<BrowserHost['profileMeta']>;try{const url=new URL(this.current?.getURL()||'');if(url.origin==='https://www.douyin.com'){const sec=url.pathname.match(/^\/user\/([\w-]+)\/?$/)?.[1];if(sec&&!this.current?.isLoadingMainFrame())profile=this.profileMeta(sec)}}catch{}return {mode:this.mode,active:this.active,tabs:this.tabs.map(t=>({id:t.id,title:t.title})),profile};}
 }
 export class DouyinTransport implements Transport {

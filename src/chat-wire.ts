@@ -34,7 +34,7 @@ export async function chatPageRead(owner:string,kind:string,cursor:string,group?
    if(String(conversation.id)!==group.id||String(conversation.shortId)!==group.short_id||conversation.type!==group.conversation_type||conversation.inboxType!==group.inbox_type)return {error:'IDENTITY'};
    const p=await sdk.getConversationParticipantsByPage({conversation,cursor,limit:50});if(identity()!==owner)return {error:'ACCOUNT_CHANGED'};
    if(!p||!Array.isArray(p.participants))return {error:'EMPTY',message:'群成员没有返回有效分页'};
-   return {members:(p.participants||[]).map((m:any)=>({uid:m.userId?.toString(),sec_uid:m.secUid||'',nickname:'',alias:m.alias||'',group_id:m.conversationId})),more:p.hasMore,cursor:p.cursor?.toString()};
+   return {members:(p.participants||[]).map((m:any)=>({uid:m.userId?.toString(),sec_uid:m.secUid||'',nickname:typeof m.nickname==='string'?m.nickname:'',account:typeof m.uniqueId==='string'?m.uniqueId:'',alias:m.alias||'',group_id:m.conversationId})),more:p.hasMore,cursor:p.cursor?.toString()};
   }return {error:'INPUT'};
  }catch(e:any){
   const raw=typeof e?.msg==='string'?e.msg:typeof e?.message==='string'?e.message:'群接口未返回可用数据';

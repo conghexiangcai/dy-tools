@@ -8,13 +8,15 @@ import {CheckinService} from './checkin-service';
 import {CheckinStore} from './checkin-store';
 import {CheckinSchedule,normalizeSchedule,scheduleTimes,windowsTaskXML,chinaDate,chinaTime} from './checkin-schedule';
 import {checkinExport,decimal} from './checkin-domain';
+import {CheckinAlerts,CheckinMailStore,mailSettings,mailAuth,MailAuth,MailError} from './checkin-mail';
 const exec=promisify(execFile);
 export class CheckinUI {
- readonly store:CheckinStore;readonly service:CheckinService;notice='';private configBusy=false;
+ readonly store:CheckinStore;readonly service:CheckinService;readonly mailStore:CheckinMailStore;readonly alerts:CheckinAlerts;notice='';private configBusy=false;
  constructor(private directory:string,private session:Session,private owner:()=>string,private window:()=>BrowserWindow,private idle:()=>Promise<void>,private notify:()=>void,blocked?:(code:string)=>Promise<void>){
   this.store=new CheckinStore(path.join(directory,'checkin.sqlite'));
+  this.mailStore=new CheckinMailStore(this.store.db);this.alerts=new CheckinAlerts(this.mailStore,o=>this.mailStore.settings(o),(o,from)=>this.mailAuth(o,from),undefined,notify);
   const wire=new CheckinHTTP(()=>this.auth(this.owner()),(u,p)=>this.session.fetch(u,p),{assertOwner:async()=>this.owner()});
-  this.service=new CheckinService(this.store,wire,owner,notify,{blocked});
+  this.service=new CheckinService(this.store,wire,owner,notify,{blocked,finished:r=>this.alerts.report(r)});
  }
  get busy(){return this.service.busy||this.configBusy}
  pause(){this.service.pause()}
@@ -23,12 +25,19 @@ export class CheckinUI {
   const file=this.authPath(owner);if(existsSync(file)){if(!safeStorage.isEncryptionAvailable())throw Error('本机加密凭据暂不可解密，请重新登录');return parseCheckinAuth(JSON.parse(safeStorage.decryptString(readFileSync(file))))}
   const cookies=await this.session.cookies.get({url:'https://www.douyin.com'});return parseCheckinAuth({version:1,owner_uid:owner,douyin_cookie:cookies.map(c=>c.name+'='+c.value).join('; ')});
  }
- state(){const s=this.service.state();return {...s,busy:this.busy,notice:this.notice,auth_source:s.owner&&existsSync(this.authPath(s.owner))?'导入认证（本机加密保存）':'软件抖音登录',times:scheduleTimes(s.schedule),verification:'粉丝团名单、日历与无圈子普通签到已实测；需加入圈子的项目跳过。'}}
+ private mailPath(owner:string){decimal(owner);return path.join(this.directory,'checkin-mail-'+owner+'.bin')}
+ private async mailAuth(owner:string,from:string):Promise<MailAuth>{try{if(!safeStorage.isEncryptionAvailable())throw Error();return mailAuth(JSON.parse(safeStorage.decryptString(readFileSync(this.mailPath(owner)))),from)}catch{throw new MailError('AUTH_CONFIG','邮箱授权码未保存、无法解密或发件人已变化，请重新填写并保存')}}
+ state(){const s=this.service.state();return {...s,busy:this.busy,notice:this.notice,mail:{settings:this.mailStore.settings(s.owner),has_auth:!!s.owner&&existsSync(this.mailPath(s.owner)),last:this.mailStore.latest(s.owner)},auth_source:s.owner&&existsSync(this.authPath(s.owner))?'导入认证（本机加密保存）':'软件抖音登录',times:scheduleTimes(s.schedule),verification:'粉丝团名单、日历与无圈子普通签到已实测；需加入圈子的项目跳过。'}}
  private assert(p:any){const owner=this.owner();if(!owner||p?.owner!==owner)throw Error('请先连接当前账号，再重新操作');return owner}
  private async savedAuth(owner:string,auth:CheckinAuth){if(this.owner()!==owner)throw Error('账号已切换，未保存认证');if(!safeStorage.isEncryptionAvailable())throw Error('本机加密服务不可用，未保存凭据');const file=this.authPath(owner),temp=file+'.tmp';writeFileSync(temp,safeStorage.encryptString(JSON.stringify(auth)));renameSync(temp,file)}
  async command(method:string,p:any){
   if(method==='checkinState')return this.state();if(method==='checkinPreviewSchedule')return scheduleTimes(normalizeSchedule(p.schedule));const owner=this.assert(p);if(this.configBusy&&method!=='checkinPause')throw Error('正在检查或保存认证、定时配置，请稍后重试');
   switch(method){
+   case 'checkinSaveMail':{if(this.busy)throw Error('请等待当前任务完成或暂停后保存邮箱设置');const settings=mailSettings(p.settings);const code=typeof p.auth_code==='string'?p.auth_code.trim():'';
+    if(code){const auth=mailAuth({version:1,from:settings.from,auth_code:code},settings.from);if(!safeStorage.isEncryptionAvailable())throw Error('本机加密服务不可用，未保存邮箱授权码');const file=this.mailPath(owner),tmp=file+'.tmp';writeFileSync(tmp,safeStorage.encryptString(JSON.stringify({version:1,...auth})));renameSync(tmp,file)}else if(settings.enabled)await this.mailAuth(owner,settings.from);
+    this.assert(p);this.mailStore.saveSettings(owner,settings);this.notice=settings.enabled?'失败邮件告警已启用；每轮汇总、同类问题按间隔提醒':'邮件设置已保存，自动告警关闭';this.notify();return true;
+   }
+   case 'checkinTestMail':{if(this.busy)throw Error('请等待当前任务完成或暂停后测试邮件');this.configBusy=true;this.notify();try{await this.alerts.test(owner);this.notice='QQ 邮箱已接受测试邮件，请检查收件箱及垃圾箱'}finally{this.configBusy=false;this.notify()}return true}
    case 'checkinPause':this.pause();return true;
    case 'checkinPreviewSchedule':return scheduleTimes(normalizeSchedule(p.schedule));
    case 'checkinInspect':case 'checkinStart':case 'checkinResume':case 'checkinVerified':
@@ -59,7 +68,7 @@ export class CheckinUI {
   try{await exec('schtasks.exe',['/Create','/TN',name,'/XML',file,'/F'],{windowsHide:true})}catch{throw Error('Windows 未允许创建定时任务，配置未启用；可使用服务器脚本')}finally{if(existsSync(file))unlinkSync(file)}
  }
  async scheduled(owner:string){
-  if(owner!==this.owner()||this.busy)return false;const schedule=this.store.schedule(owner);if(!schedule.enabled)return false;const last=this.store.latest(owner);if(last&&last.status!=='completed'){this.notice='上次打卡尚待处理，请手动继续；定时保持等待';this.notify();return false}
+  if(owner!==this.owner()||this.busy)return false;const schedule=this.store.schedule(owner);if(!schedule.enabled)return false;const last=this.store.latest(owner);if(last&&last.status!=='completed'){this.configBusy=true;try{await this.alerts.report(last)}finally{this.configBusy=false}this.notice='上次打卡尚待处理，请手动继续；定时保持等待';this.notify();return false}
   const eligible=scheduleTimes(schedule).filter(t=>t<=chinaTime());if(!eligible.length)return false;const slot=chinaDate()+'T'+eligible.at(-1);if(!this.store.claimSlot(owner,slot))return false;
   try{await this.idle();if(owner!==this.owner())throw Error('账号已切换');await this.service.start('sign');await this.service.wait();return true}catch{this.store.releaseSlot(owner,slot);this.notice='本次定时未启动：账号变化或其他任务正在执行，下个时间点重试';this.notify();return false}
  }

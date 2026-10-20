@@ -8,8 +8,11 @@ export class ChatStore{
  CREATE TABLE IF NOT EXISTS chat_catalog(owner TEXT PRIMARY KEY,data TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS chat_runs(id TEXT PRIMARY KEY,owner TEXT NOT NULL,data TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS chat_imports(id TEXT PRIMARY KEY,owner TEXT NOT NULL,data TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS chat_profiles(owner TEXT NOT NULL,uid TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(owner,uid));
  CREATE TABLE IF NOT EXISTS chat_migrations(owner TEXT PRIMARY KEY);`);
  for(const r of db.prepare('SELECT data FROM chat_runs').all() as any[]){const run:ChatRun=JSON.parse(r.data);if(run.status==='running'){run.status='paused';run.message='上次扫描中断，可从已保存页继续';this.saveRun(run)}}}
+ profiles(owner:string):Map<string,ChatMember>{return new Map((this.db.prepare('SELECT data FROM chat_profiles WHERE owner=?').all(owner) as any[]).map(r=>{const m=JSON.parse(r.data);return [m.uid,m]}))}
+ saveProfile(owner:string,m:ChatMember){this.db.prepare('INSERT INTO chat_profiles VALUES(?,?,?) ON CONFLICT(owner,uid) DO UPDATE SET data=excluded.data').run(owner,m.uid,JSON.stringify({...m,checked_at:new Date().toISOString()}))}
  transaction<T>(fn:()=>T):T{this.db.exec('BEGIN IMMEDIATE');try{const value=fn();this.db.exec('COMMIT');return value}catch(e){this.db.exec('ROLLBACK');throw e}}
  migrate(owner:string,legacy:any[]){if(!owner||this.db.prepare('SELECT owner FROM chat_migrations WHERE owner=?').get(owner))return;this.transaction(()=>{if(legacy.length){for(const s of parseChatJSON({groups:legacy},'旧版群名单').snapshots)this.put(owner,s)}this.db.prepare('INSERT INTO chat_migrations VALUES(?)').run(owner)})}
  put(owner:string,s:ChatSnapshot){this.db.prepare('INSERT INTO chat_snapshots VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data WHERE chat_snapshots.owner=excluded.owner').run(s.id,owner,JSON.stringify(s))}

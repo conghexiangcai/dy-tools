@@ -4,7 +4,7 @@ import {CheckinWire,CheckinConnection} from './checkin-wire';
 import {chinaDate} from './checkin-schedule';
 export class CheckinService {
  busy=false;countdown=0;private stopping=false;private task:Promise<void>|null=null;
- constructor(public store:CheckinStore,private wire:CheckinWire,private owner:()=>string,private notify:()=>void,private options:{sleep?:(ms:number)=>Promise<void>;now?:()=>number;blocked?:(code:string)=>Promise<void>}={}){}
+ constructor(public store:CheckinStore,private wire:CheckinWire,private owner:()=>string,private notify:()=>void,private options:{sleep?:(ms:number)=>Promise<void>;now?:()=>number;blocked?:(code:string)=>Promise<void>;finished?:(r:CheckinRun)=>Promise<void>}={}){}
  private sleep(ms:number){return (this.options.sleep||(n=>new Promise(r=>setTimeout(r,n))))(ms)}
  private now(){return (this.options.now||Date.now)()}
  state(){const owner=this.owner();const r=this.store.latest(owner);if(r?.status==='running'&&!this.busy){r.status='paused';r.message='上次运行已中断；继续时会先核对未确认结果'}return {owner,busy:this.busy,countdown:this.countdown,run:r,schedule:this.store.schedule(owner)}}
@@ -15,7 +15,7 @@ export class CheckinService {
  private async launch(previous:CheckinRun|undefined,mode:CheckinRun['mode'],verified:boolean){
   if(this.busy)throw Error('已有打卡任务正在运行');const owner=this.owner();if(!owner)throw Error('请连接当前账号');const release=this.store.acquire(owner);this.busy=true;this.stopping=false;
   let r:CheckinRun;try{r=previous||this.store.create(owner,mode)}catch(e){release();this.busy=false;throw e}
-  r.status='running';this.store.save(r);this.notify();this.task=this.run(r,verified).finally(()=>{release();this.busy=false;this.countdown=0;this.notify()});return r.id;
+  r.status='running';delete r.error_code;this.store.save(r);this.notify();this.task=this.run(r,verified).then(async()=>{try{await this.options.finished?.(r)}catch{/* Alert failure cannot rewrite or discard the check-in result. */}}).finally(()=>{release();this.busy=false;this.countdown=0;this.notify()});return r.id;
  }
  private save(r:CheckinRun){this.store.save(r);this.notify()}
  private check(r:CheckinRun){if(this.owner()!==r.owner)throw new CheckinError('ACCOUNT_CHANGED','登录账号已变化，本轮暂停');if(this.stopping)throw new CheckinError('PAUSED','已暂停，可从断点继续')}
@@ -39,7 +39,7 @@ export class CheckinService {
    }
    r.status='completed';const signed=r.items.filter(i=>i.state==='signed').length,issues=r.items.filter(i=>['unknown','failed','unsupported','needs_join'].includes(i.state)).length;
    r.message=`${r.mode==='inspect'?'状态核查':'本轮打卡'}完成 · 今日已签到 ${signed} / ${r.items.length} · 待处理 ${issues}`;this.save(r);
-  }catch(e:any){r.status=e.code==='LOGIN'?'waiting_login':e.code==='CAPTCHA'?'waiting_verification':e.code==='RATE_LIMIT'?'rate_limited':'paused';r.message=e instanceof CheckinError?e.message:'任务中断，已保存断点；请检查认证或连接后继续';this.save(r);if(['LOGIN','CAPTCHA'].includes(e.code)&&this.owner()===r.owner)await this.options.blocked?.(e.code).catch(()=>{})}
+  }catch(e:any){r.error_code=e instanceof CheckinError?e.code:'INTERNAL';r.status=e.code==='LOGIN'?'waiting_login':e.code==='CAPTCHA'?'waiting_verification':e.code==='RATE_LIMIT'?'rate_limited':'paused';r.message=e instanceof CheckinError?e.message:'任务中断，已保存断点；请检查认证或连接后继续';this.save(r);if(['LOGIN','CAPTCHA'].includes(e.code)&&this.owner()===r.owner)await this.options.blocked?.(e.code).catch(()=>{})}
  }
  private async list(r:CheckinRun,c:CheckinConnection){
   for(let n=0;n<1000;n++){this.check(r);const p=await this.read(r,()=>c.list(r.offset));this.check(r);await c.assert();

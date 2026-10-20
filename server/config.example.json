@@ -2,6 +2,14 @@
   "version": 1,
   "credentials_file": "./credentials.json",
   "data_file": "./data/checkin.sqlite",
+  "email": {
+    "enabled": false,
+    "from": "",
+    "to": [],
+    "credentials_file": "./mail-credentials.json",
+    "cooldown_minutes": 60,
+    "include_unavailable": false
+  },
   "schedule": {
     "enabled": false,
     "mode": "times",
