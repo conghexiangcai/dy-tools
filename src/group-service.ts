@@ -2,45 +2,48 @@ import {randomUUID} from 'node:crypto';
 import {Store} from './store';
 import {User,cleanUser} from './domain';
 import {CollectError} from './transport';
-import {GroupCatalog,readCatalog,readMembers,membershipDelta,deltaConfirmed,sameCatalog} from './groups';
+import {GroupCatalog,readCatalog,readDirectory,readMembers,membershipDelta,deltaConfirmed,sameCatalog} from './groups';
 export type GroupConnection={selfSec?:string;read:(path:string,params:Record<string,string>)=>Promise<any>;write:(secUid:string,add:string[],del:string[],guard?:()=>void)=>Promise<void>};
 export interface GroupWire {connect(owner:string):Promise<GroupConnection>;challenge(target?:User,navigate?:boolean):Promise<boolean>;show():void}
 export class GroupService {
-  busy=false;countdown=0;waiting=false;message='';private pending:'refresh'|'dialog'|null=null;
+  busy=false;countdown=0;waiting=false;message='';private messageOwner='';private pending:'refresh'|'dialog'|null=null;
   dialog:{token:string;owner:string;user:User;initial:string[];catalog:GroupCatalog;valid:()=>boolean;loaded:boolean}|null=null;
   constructor(public store:Store,private wire:GroupWire,private changed:()=>void,private delay=(ms:number)=>new Promise<void>(r=>setTimeout(r,ms))){}
-  state(){return {busy:this.busy,countdown:this.countdown,waiting:this.waiting,message:this.message,...this.store.groups.state(this.store.owner())}}
+  state(){const owner=this.store.owner(),current=this.messageOwner===owner;return {busy:this.busy,countdown:current?this.countdown:0,waiting:current&&this.waiting,message:current?this.message:'',...this.store.groups.state(owner)}}
   cancel(){if(!this.dialog)return;this.dialog=null;this.changed()}
   private guard(d:NonNullable<GroupService['dialog']>){if(this.dialog!==d||this.store.owner()!==d.owner||!d.valid())throw new CollectError('STALE','主页或登录账号已切换，请重新打开分组弹窗')}
   private async failed(owner:string,e:any,pending:'refresh'|'dialog'){
-    if(e.code==='STALE')return;
+    if(e.code==='STALE'||owner!==this.store.owner())return;
+    this.messageOwner=owner;
     this.message=e instanceof CollectError?e.message:'分组请求失败，请刷新重试';
     this.waiting=e.code==='CAPTCHA'||await this.wire.challenge();this.pending=this.waiting?pending:null;
     if(e.code==='CAPTCHA')await this.wire.challenge(this.dialog?.user,true);
     if(this.waiting){this.message='分组请求需要验证，请在抖音窗口完成后点击“已完成验证”';this.wire.show()}
+    if(!this.waiting)this.message+='；本次未更新，保留上次完整分组';
     this.store.groups.failed(owner,this.message);this.changed();
   }
   async refresh(){
     if(this.busy)throw Error('正在处理分组，请稍候');const owner=this.store.owner(),rows=this.store.snapshot().rows;if(!owner)throw Error('请先登录并连接当前账号');
-    this.busy=true;this.waiting=false;this.message='正在读取抖音分组';this.changed();
+    this.busy=true;this.waiting=false;this.messageOwner=owner;this.message='正在读取抖音分组';this.changed();
     try{
-      const cx=await this.wire.connect(owner),sec=rows[0]?.sec_uid||cx.selfSec;if(!sec)throw Error('分组目录缺少可核对的账号，请先获取关注名单');const catalog=await readCatalog(cx.read,sec),mapping=new Map(rows.map(r=>[r.uid,[] as string[]])),users=new Map<string,User>();
+      const cx=await this.wire.connect(owner),sec=cx.selfSec||rows[0]?.sec_uid;if(!sec)throw new CollectError('IDENTITY','无法核对当前登录账号，请重新连接');const catalog=await readDirectory(cx.read,sec),mapping=new Map(rows.map(r=>[r.uid,[] as string[]])),users=new Map<string,User>();
       const memberRead:GroupConnection['read']=async(p,q)=>{const data=await cx.read(p,q);for(const u of data.user_list||[])try{const user=cleanUser(u);users.set(user.uid,user)}catch{throw new CollectError('SCHEMA','分组成员身份不完整，已保留上次数据')}return data};
       for(const [i,g] of catalog.groups.entries()){
         if(this.store.owner()!==owner)throw new CollectError('STALE','登录账号已切换，已取消旧账号分组更新');
         this.message=`正在读取分组成员 ${i+1} / ${catalog.groups.length}`;this.changed();
         for(const uid of await readMembers(memberRead,g)){if(!mapping.has(uid))mapping.set(uid,[]);mapping.get(uid)!.push(g.id)}
       }
-      const latest=await readCatalog(cx.read,sec);
+      const latest=await readDirectory(cx.read,sec);
       if(!sameCatalog(catalog.groups,latest.groups))throw new CollectError('CONFLICT','分组在同步期间发生变化，请重新刷新');
       if(this.store.owner()!==owner)throw new CollectError('STALE','登录账号已切换，已取消旧账号分组更新');
       this.store.groups.complete(owner,catalog.groups,mapping,users);this.message=`已同步 ${catalog.groups.length} 个抖音分组`;this.pending=null;
-    }catch(e){await this.failed(owner,e,'refresh')}finally{this.busy=false;this.changed()}
+      return {ok:true,checked_at:this.store.groups.state(owner).checked_at,error:null};
+    }catch(e){await this.failed(owner,e,'refresh');return {ok:false,checked_at:this.store.groups.state(owner).checked_at,error:this.message||'账号已切换，本次分组未更新'}}finally{this.busy=false;this.changed()}
   }
   async open(user:User,valid:()=>boolean){
     if(this.busy)throw Error('正在刷新分组，请稍候再设置');this.cancel();
     const d={token:randomUUID(),owner:this.store.owner(),user,initial:[] as string[],catalog:{groups:[],belong:[]} as GroupCatalog,valid,loaded:false};this.dialog=d;
-    this.busy=true;this.changed();try{
+    this.busy=true;this.messageOwner=d.owner;this.changed();try{
       const cx=await this.wire.connect(d.owner),catalog=await readCatalog(cx.read,user.sec_uid);this.guard(d);
       d.initial=catalog.belong;d.catalog=catalog;d.loaded=true;this.store.groups.target(d.owner,user.uid,catalog.groups,catalog.belong);
       this.message='';return this.dialogState();

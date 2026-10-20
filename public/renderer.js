@@ -52,7 +52,7 @@ function render(){
     const times=cell(tr,'','video-times');if(r.recent_video_times?.length){for(const value of r.recent_video_times.slice(0,3)){const line=document.createElement('div');line.textContent=new Date(value).toLocaleString('sv-SE',{timeZone:'Asia/Shanghai',hour12:false});times.append(line)}const ago=document.createElement('small');ago.textContent='最新距今 '+x.age+' 天';times.append(ago)}else times.textContent=r.recent_videos_status==='empty'?'无作品':r.recent_videos_status==='private'?'未知（私密）':['unknown','conflict'].includes(r.recent_videos_status)?'未知（未能可靠读取）':'尚未获取';
     cell(tr,opened.has(r.uid)?'已请求打开主页':'尚未打开','state');cell(tr,'').append(profileLink(r));$('rows').append(tr);
   }
-  if(!filtered.length){const tr=document.createElement('tr'),td=cell(tr,$('filter-error').hidden?(!owner?'暂无本地名单，请登录抖音后点击更新数据':'没有符合当前筛选条件的账号'):'请修正筛选条件','empty');td.colSpan=12;$('rows').append(tr)}
+  if(!filtered.length){const tr=document.createElement('tr'),td=cell(tr,$('filter-error').hidden?emptyListMessage():'请修正筛选条件','empty');td.colSpan=12;$('rows').append(tr)}
   wrap.scrollTop=scroll;$('match-count').textContent=fmt(filtered.length);$('page-info').textContent=`共 ${fmt(filtered.length)} 人 · 第 ${filtered.length?page+1:0} / ${Math.ceil(filtered.length/size)} 页 · 每页 ${size} 人`;$('prev').disabled=!page;$('next').disabled=(page+1)*size>=filtered.length;updateActions();
 }
 function showBatch(message){
@@ -69,10 +69,15 @@ async function reload(){
     await saveChain;const data=await desktop.call('snapshot');const changed=owner!==data.summary.account_uid;owner=data.summary.account_uid;summary=data.summary;rows=data.rows;groupRows=data.group_rows||[];byId=new Map([...rows,...groupRows].map(r=>[r.uid,r]));
     fillGroups(data.group_catalog||[],changed?data.review.settings['group-filter']||'':$('group-filter').value);
     if(changed){selected=new Set(data.review.selected);opened=new Set(data.review.opened);lastBatch=data.review.lastBatch;setSettings(data.review.settings);page=0;}
-    $('total').textContent=fmt(rows.length);$('data-status').textContent=!owner?'暂无本地名单，请登录抖音后点击更新数据':summary.source_label+' · 本次主页更新 '+fmt(summary.profiles_refreshed)+' / '+fmt(summary.total)+' · 作品数未知 '+fmt(rows.length-summary.works_verified);$('data-status').classList.toggle('warning',!!owner&&!summary.refresh_complete);
+    $('total').textContent=fmt(rows.length);$('data-status').textContent=!owner?'暂无本地名单，请登录抖音后点击更新数据':summary.source_label+' · 本次主页更新 '+fmt(summary.profiles_refreshed)+' / '+fmt(summary.total)+' · 作品数未知 '+fmt(rows.length-summary.works_verified);$('data-status').classList.toggle('warning',!!owner&&!summary.refresh_complete);if(!rows.length&&task.run?.phase==='following')$('data-status').textContent=emptyListMessage();
     $('import-review').disabled=!owner;$('export-review').disabled=!owner;$('export').disabled=!rows.length;$('refresh-groups').disabled=!owner||!!task.groups?.busy;
     $('footer').textContent='名单同步：'+date(summary.following_snapshot_at)+' · 指标更新：'+date(summary.profiles_updated_at)+' · 视频时间更新：'+date(summary.videos_updated_at)+'。打开记录不表示已取关；手动取关后的变化将在下次更新时反映。';apply(false);if(changed)showBatch();
   }catch(e){error(e.message)}finally{loading=false;if(loadAgain){loadAgain=false;setTimeout(reload,100)}}
+}
+function emptyListMessage(){
+ if(!rows.length&&task.run?.phase==='following')return `正在读取关注名单，已获取 ${fmt(task.progress?.total||0)} 人，完整后展示${task.busy?'':'；任务已暂停，可继续'}`;
+ if(!owner)return '暂无本地名单，请登录抖音后点击更新数据';
+ return !rows.length&&!summary.following_snapshot_at?'尚无完整关注名单，请点击更新数据':'没有符合当前筛选条件的账号';
 }
 function renderTask(t){
   task=t||{};const r=task.run,p=task.progress||{completed:0,total:0,videos:0};const words={running:r?.phase==='following'?'正在读取关注列表':r?.phase==='videos'?'正在读取视频发布时间':'正在读取主页详情',paused:'已暂停',waiting_login:'等待登录',waiting_verification:'等待手动验证',cooldown:'验证后等待 '+(task.countdown||0)+' 秒',error:'已暂停，等待重试',completed:r?.id==='seed-v3'?'已导入原名单，视频时间待更新':'采集完成'};
@@ -80,6 +85,7 @@ function renderTask(t){
   $('task-status').textContent=(r?`${words[r.status]||r.status} · ${r.phase==='following'?p.total+' 个账号，'+r.pages+' 页':'详情 '+p.completed+' / '+p.total+' · 视频时间 '+(p.videos||0)+' / '+p.total} · ${r.message||''}`:'尚未开始更新，先登录抖音并检查连接')+eta+(task.notice?' · '+task.notice:'');
   $('progress').max=Math.max(1,p.total*2);$('progress').value=p.completed+(p.videos||0);$('refresh').disabled=!!task.busy;$('connect').disabled=!!task.busy;$('pause').disabled=!task.busy;$('resume').disabled=!!task.busy||!r||r.status==='completed';$('verified').hidden=!['waiting_verification','cooldown'].includes(r?.status);$('verified').disabled=!!task.busy;
   if(task.groups)renderGroups(task.groups);
+  if(!rows.length){render();if(task.run?.phase==='following')$('data-status').textContent=emptyListMessage();}
 }
 function renderGroups(g){$('refresh-groups').disabled=!owner||!!g.busy;$('group-status').textContent=g.message||g.error||(g.checked_at?'分组同步：'+date(g.checked_at):'分组尚未同步；可使用“所属分组”列的刷新按钮');if(g.waiting||g.countdown){$('verified').hidden=false;$('verified').disabled=!!g.busy}}
 function fillGroups(catalog,value){const select=$('group-filter');select.replaceChildren();const entries=[['','所属分组：全部'],['ungrouped','未分组'],['unknown','归属未知'],...catalog.map(g=>[g.id,g.name+'（'+g.member_count+' 人）'])];if(value&&!entries.some(([id])=>id===value))entries.push([value,'该分组已变更（请刷新）']);for(const [id,label] of entries){const option=document.createElement('option');option.value=id;option.textContent=label;select.append(option)}select.value=value;select.title='分组与粉丝、作品、互关、是否打开等现有筛选条件叠加；多组账号包含在各所属分组中。'}

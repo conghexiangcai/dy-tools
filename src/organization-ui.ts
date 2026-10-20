@@ -21,7 +21,7 @@ export class OrganizationUI{
    case 'orgPause':this.pause();return true;
    case 'orgRefresh':await this.idle();this.owner(p);await this.activity.start(p.kind);return true;
    case 'orgResume':await this.idle();this.owner(p);await this.activity.resume(p.verified===true,p.kind);return true;
-   case 'orgGroupsRefresh':await this.idle();this.owner(p);await this.groups.refresh();return true;
+   case 'orgGroupsRefresh':await this.idle();this.owner(p);return this.groups.refresh();
    case 'orgGroupsVerified':await this.idle();this.owner(p);await this.groups.verified();return true;
    case 'orgBatch':return this.manager.get(owner,String(p.id));
    case 'orgPreview':await this.idle();this.owner(p);return this.manager.preview(cleanIds(p.ids),p.operation,cleanIds(p.source),cleanIds(p.target));

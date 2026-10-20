@@ -3,6 +3,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {Store} from './store';
+import {LoginState} from './login-state';
 import {BrowserHost,DouyinTransport,appURL} from './browser';
 import {Collector} from './collector';
 import {cleanIds,User,accountPrivacy} from './domain';
@@ -36,13 +37,19 @@ let fans:FanService,fanUI:FanUI,actions:ActionService,toolUI:ToolUI;
 let chats:ChatUI;
 let checkins:CheckinUI;
 let organization:OrganizationUI;
+let loginState:LoginState,loginTimer:NodeJS.Timeout|undefined;
+function taskBusy(){return !!(collector?.busy||fans?.busy||groups?.busy||organization?.busy||chats?.busy||checkins?.busy||actions?.busy||toolUI?.busy)}
+function scheduleLoginCheck(){
+ clearTimeout(loginTimer);if(quitting||process.argv.includes('--no-auto-login'))return;loginTimer=setTimeout(()=>{loginTimer=undefined;if(quitting)return;if(taskBusy()){scheduleLoginCheck();return}void transport.owner().catch(()=>{})},1500);
+}
+function pauseForIdentity(){organization?.pause();collector?.pause();fans?.pause();chats?.pause();checkins?.pause();toolUI?.pause();groupUI?.cancel();groupSyncQueued=false;}
 const scheduledOwner=process.argv.find(v=>v.startsWith('--checkin-due='))?.slice(14);
 const resources=path.join(__dirname,'../resources'),publicDir=path.join(__dirname,'../public');
 function fanVerification(){const f=fans?.state(),r=f?.pending||f?.run;return r?{status:r.status,message:r.message,busy:f!.busy,countdown:f!.countdown}:null}
-function send(host:BrowserHost){if(!host.window.isDestroyed())host.window.webContents.send('desktop:change',{browser:host.state(),task:collector?.state(),groups:groups?.state(),fans:fanVerification()});}
+function send(host:BrowserHost){if(!host.window.isDestroyed())host.window.webContents.send('desktop:change',{session:loginState?.state(),browser:host.state(),task:collector?.state(),groups:groups?.state(),fans:fanVerification()});}
 function broadcast(){
   fanUI?.notify();
-  if(quitting||changeTimer)return;changeTimer=setTimeout(()=>{changeTimer=undefined;rowsVersion++;const msg={version:rowsVersion,task:collector?.state(),owner:store.owner(),notice,probe:probeResult,groups:groups?.state()};if(dashboard&&!dashboard.isDestroyed())dashboard.webContents.send('desktop:change',msg);if(loginHost)send(loginHost);if(reviewHost)send(reviewHost);groupUI?.notify();
+  if(quitting||changeTimer)return;changeTimer=setTimeout(()=>{changeTimer=undefined;rowsVersion++;const msg={version:rowsVersion,session:loginState?.state(),task:collector?.state(),owner:store.owner(),notice,probe:probeResult,groups:groups?.state()};if(dashboard&&!dashboard.isDestroyed())dashboard.webContents.send('desktop:change',msg);if(loginHost)send(loginHost);if(reviewHost)send(reviewHost);groupUI?.notify();if(fanUI?.window&&!fanUI.window.isDestroyed())fanUI.window.webContents.send('desktop:change',{session:loginState?.state()});
     if(groups?.waiting&&collector.busy)collector.pause();
     if(groupSyncQueued&&!organization?.busy&&!groups?.busy&&!fans?.busy&&!actions?.busy&&!toolUI?.busy&&!chats?.busy&&!checkins?.busy&&store.latest()?.phase!=='following'){groupSyncQueued=false;void groups.refresh().catch(()=>{})}
   },250);
@@ -83,7 +90,7 @@ async function command(method:string,p:any,sender:number){
     case 'pause':collector.pause();return true;
     case 'resume':if(fans.busy)throw Error('请先暂停粉丝团查询');await collector.resume(false);return true;
     case 'verified':if(actions?.busy||toolUI?.busy)throw Error('请在工具箱任务中继续');if(checkins?.state().run?.status==='waiting_verification')await checkins.command('checkinVerified',{owner:store.owner()});else if(['waiting_verification','cooldown'].includes(fanVerification()?.status||''))await fans.resume(true);else if(groups.waiting)await groups.verified();else await collector.resume(true);return true;
-    case 'groupRefresh':if(fans.busy)throw Error('请先暂停粉丝团查询');await groups.refresh();return true;
+    case 'groupRefresh':if(fans.busy)throw Error('请先暂停粉丝团查询');return groups.refresh();
     case 'review':store.reviewDelta(p.owner_uid,p.delta);return true;
     case 'openProfiles':{
       if(p.owner_uid!==store.owner())throw Error('页面账号已变更，请稍后重试');const ids=cleanIds(p.ids);if(ids.length>10)throw Error('每批最多打开 10 个主页');
@@ -114,12 +121,12 @@ async function command(method:string,p:any,sender:number){
 if(!app.requestSingleInstanceLock()){app.quit()}else{
   app.on('second-instance',(_e,argv)=>{const due=argv.find(v=>v.startsWith('--checkin-due='))?.slice(14);if(due){void checkins?.scheduled(due)}else if(dashboard)safeDashboard()});
   app.whenReady().then(async()=>{
-    protocol.handle('app',req=>{const url=new URL(req.url);const allowed=new Set(['index.html','style.css','renderer.js','rules.js','browser.html','browser.js','group-button.html','profile-private.html','group-dialog.html','group.css','group.js','fanclub.html','fanclub.css','fanclub.js','toolbox.html','toolbox.css','toolbox.js','chat.html','chat.css','chat.js','checkin.html','checkin.css','checkin.js','organization.html','organization.css','organization.js']);const name=url.pathname.slice(1);if(url.hostname!=='local'||!allowed.has(name))return new Response('Not found',{status:404});return net.fetch(pathToFileURL(path.join(publicDir,name)).href);});
+    protocol.handle('app',req=>{const url=new URL(req.url);const allowed=new Set(['session-status.js','index.html','style.css','renderer.js','rules.js','browser.html','browser.js','group-button.html','profile-private.html','group-dialog.html','group.css','group.js','fanclub.html','fanclub.css','fanclub.js','toolbox.html','toolbox.css','toolbox.js','chat.html','chat.css','chat.js','checkin.html','checkin.css','checkin.js','organization.html','organization.css','organization.js']);const name=url.pathname.slice(1);if(url.hostname!=='local'||!allowed.has(name))return new Response('Not found',{status:404});return net.fetch(pathToFileURL(path.join(publicDir,name)).href);});
     const userDir=app.getPath('userData');mkdirSync(userDir,{recursive:true});store=new Store(path.join(userDir,'review.sqlite'));
     session.fromPartition('persist:douyin-login').setPermissionRequestHandler((_wc,permission,done)=>done(permission==='fullscreen'));
     session.fromPartition('persist:douyin-login').setPermissionCheckHandler((_wc,permission)=>permission==='fullscreen');
     const preload=path.join(__dirname,'preload.js');
-    loginHost=new BrowserHost('collector',preload,send);reviewHost=new BrowserHost('review',preload,send);transport=new DouyinTransport(loginHost);collector=new Collector(store,transport,broadcast);
+    loginHost=new BrowserHost('collector',preload,send);reviewHost=new BrowserHost('review',preload,send);loginState=new LoginState(broadcast,user=>{if(store.owner()&&store.owner()!==user.uid)pauseForIdentity();store.activate(user.uid,user.nickname)});transport=new DouyinTransport(loginHost,loginState);collector=new Collector(store,transport,broadcast);
     groups=new GroupService(store,new DouyinGroupWire(session.fromPartition('persist:douyin-login'),transport),broadcast);
     groupUI=new GroupUI(reviewHost,store,groups,preload);loginHost.onContextChange=()=>groupUI.cancel();
     fans=new FanService(new FanStore(store.db),new DouyinFanWire(session.fromPartition('persist:douyin-login'),transport),()=>store.owner(),()=>{fanUI?.notify();if(loginHost)send(loginHost);if(reviewHost)send(reviewHost)});
@@ -137,15 +144,19 @@ if(!app.requestSingleInstanceLock()){app.quit()}else{
     dashboard.webContents.setWindowOpenHandler(()=>({action:'deny'}));dashboard.webContents.on('will-navigate',e=>e.preventDefault());
     ipcMain.handle('desktop:command',async(event,method,p)=>{
       if(![dashboard.webContents.id,loginHost.window.webContents.id,reviewHost.window.webContents.id].includes(event.sender.id)&&!groupUI.owns(event.sender.id)&&!fanUI.owns(event.sender.id)||event.senderFrame!==event.sender.mainFrame||!event.senderFrame.url.startsWith(appURL))return {ok:false,error:'不允许的调用来源'};
-      try{if((organization?.busy||actions?.busy||toolUI?.busy||chats?.busy||checkins?.busy)&&(groupUI.owns(event.sender.id)||fanUI.owns(event.sender.id))&&!['fanState','groupDialogState','groupCancel','fanHome'].includes(method))throw Error('请先暂停批量任务');return {ok:true,data:await (fanUI.owns(event.sender.id)?fanUI.command(method,p):groupUI.owns(event.sender.id)?groupUI.command(method,p,event.sender.id):command(method,p,event.sender.id))}}catch(e:any){return {ok:false,error:typeof e?.message==='string'?e.message:'操作失败，请重试'}}
+      try{if(method==='sessionState')return {ok:true,data:loginState.state()};if((organization?.busy||actions?.busy||toolUI?.busy||chats?.busy||checkins?.busy)&&(groupUI.owns(event.sender.id)||fanUI.owns(event.sender.id))&&!['fanState','groupDialogState','groupCancel','fanHome'].includes(method))throw Error('请先暂停批量任务');return {ok:true,data:await (fanUI.owns(event.sender.id)?fanUI.command(method,p):groupUI.owns(event.sender.id)?groupUI.command(method,p,event.sender.id):command(method,p,event.sender.id))}}catch(e:any){return {ok:false,error:typeof e?.message==='string'?e.message:'操作失败，请重试'}}
     });
+    session.fromPartition('persist:douyin-login').cookies.on('changed',(_e,cookie)=>{if(/(^|\.)douyin\.com$/.test(cookie.domain||'')&&/^(sessionid|sessionid_ss|sid_tt|uid_tt|uid_tt_ss)$/.test(cookie.name)){loginState.invalidate();scheduleLoginCheck()}});
+    app.on('browser-window-focus',(_e,win)=>{if(win===dashboard||win===fanUI?.window){const s=loginState.state();if(s.status!=='connected'||!s.checked_at||Date.now()-Date.parse(s.checked_at)>30000)scheduleLoginCheck()}});
+    loginHost.window.on('hide',scheduleLoginCheck);
     await dashboard.loadURL(appURL+(scheduledOwner?'checkin.html':'toolbox.html?tool=home'));if(!scheduledOwner)dashboard.show();
     if(scheduledOwner){void checkins.scheduled(scheduledOwner).finally(()=>{if(!dashboard.isVisible())app.quit()})}
+    if(!scheduledOwner&&!process.argv.includes('--no-auto-login'))scheduleLoginCheck();
     if(process.argv.includes('--login')){await transport.ensure();transport.show();}
     if(process.argv.includes('--resume')&&store.latest()&&store.latest()!.status!=='completed')await collector.resume(false);
     if(!scheduledOwner&&store.owner()&&(!store.groups.state(store.owner()).checked_at||store.groups.needsMemberDetails(store.owner()))&&!process.argv.includes('--no-auto-groups'))setTimeout(()=>{if(!quitting&&!organization.busy&&!fans.busy&&!chats.busy&&!checkins.busy)void groups.refresh().catch(()=>{})},2000);
     dashboard.on('closed',()=>{if(!quitting)app.quit()});
   }).catch(e=>{dialog.showErrorBox('启动失败',String(e.message));app.quit();});
-  app.on('before-quit',()=>{if(quitting)return;quitting=true;organization?.pause();checkins?.pause();chats?.pause();toolUI?.pause();collector?.pause();if(changeTimer)clearTimeout(changeTimer);fanUI?.destroy();groupUI?.destroy();if(loginHost&&!loginHost.window.isDestroyed())loginHost.destroy();if(reviewHost&&!reviewHost.window.isDestroyed())reviewHost.destroy();});
+  app.on('before-quit',()=>{if(quitting)return;quitting=true;clearTimeout(loginTimer);organization?.pause();checkins?.pause();chats?.pause();toolUI?.pause();collector?.pause();if(changeTimer)clearTimeout(changeTimer);fanUI?.destroy();groupUI?.destroy();if(loginHost&&!loginHost.window.isDestroyed())loginHost.destroy();if(reviewHost&&!reviewHost.window.isDestroyed())reviewHost.destroy();});
   app.on('will-quit',()=>{checkins?.close();store?.close()});
 }

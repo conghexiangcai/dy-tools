@@ -3,6 +3,7 @@ import path from 'node:path';
 import {Transport,SELF,FOLLOWING,PROFILE,POSTS,baseParams,pageRequest,checkPageResult,parseOwner,parseFollowing,parseFollowers,parseVideos,CollectError} from './transport';
 import {User,cleanUser} from './domain';
 import {parseAccountSearch} from './account-search';
+import {LoginState} from './login-state';
 const delay=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 export const appURL='app://local/';
 export function allowedRemote(url:string){try{const u=new URL(url);return u.protocol==='https:'&&['douyin.com','iesdouyin.com','bytedance.com','snssdk.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false}}
@@ -45,17 +46,17 @@ export class DouyinTransport implements Transport {
   private searchAt=0;
   private queue:Promise<unknown>=Promise.resolve();
   exclusive<T>(fn:()=>Promise<T>):Promise<T>{const next=this.queue.then(fn,fn);this.queue=next.catch(()=>{});return next}
-  constructor(public host:BrowserHost){}
+  constructor(public host:BrowserHost,public loginState?:LoginState){}
   async ensure(){let wc=this.host.tabs.find(t=>t.id==='collector')?.view.webContents;if(!wc||wc.isDestroyed())wc=await this.host.add('https://www.douyin.com/user/self?showTab=post','抖音登录与采集','collector');return wc;}
   show(){this.host.select('collector');this.host.show();}
   private async request(path:string,params:Record<string,string>={}){
     return this.exclusive(async()=>{
     const wc=await this.ensure();if(new URL(wc.getURL()).origin!=='https://www.douyin.com')await wc.loadURL('https://www.douyin.com/user/self?showTab=post');
     let result:any;try{result=await wc.executeJavaScript('('+pageRequest.toString()+')('+JSON.stringify(path)+','+JSON.stringify({...baseParams,...params})+')')}catch{throw new CollectError('NETWORK','抖音页面暂时无法读取')}
-    return checkPageResult(result);
+    try{return checkPageResult(result)}catch(e){this.loginState?.failure(e);throw e}
     });
   }
-  async owner(){if(await this.challenge())throw new CollectError('CAPTCHA','需要先完成抖音验证');return parseOwner(await this.request(SELF));}
+  async owner(){const read=async()=>{if(await this.challenge())throw new CollectError('CAPTCHA','需要先完成抖音验证');return parseOwner(await this.request(SELF))};return this.loginState?this.loginState.check(read):read();}
   async following(owner:User,offset:number,time:number){return parseFollowing(await this.request(FOLLOWING,{user_id:owner.uid,sec_user_id:owner.sec_uid,offset:String(offset),max_time:String(time),count:'20'}));}
   // Read-only candidate: accepted only after schema, identity and full-count checks.
   async followers(owner:User,offset:number,time:number){return parseFollowers(await this.request('/aweme/v1/web/user/follower/list/',{user_id:owner.uid,sec_user_id:owner.sec_uid,offset:String(offset),max_time:String(time),count:'20'}));}

@@ -12,24 +12,26 @@ export function groupId(value:unknown):string{
 export function groupIds(value:unknown):string[]{if(!Array.isArray(value))throw new CollectError('SCHEMA','分组归属缺失');return [...new Set(value.map(groupId))]}
 function page(data:any){if(!data||![0,1,true,false].includes(data.has_more))throw new CollectError('SCHEMA','分组分页结构发生变化');return {more:!!data.has_more,cursor:groupId(data.cursor??0)}}
 function number(value:any){if(!Number.isSafeInteger(value)||value<0)throw new CollectError('SCHEMA','分组数量缺失');return value as number}
-export function parseCatalog(data:any){
+export function parseCatalog(data:any,requireMembership=true){
   if(!Array.isArray(data?.groups))throw new CollectError('SCHEMA','分组目录缺失');
   const groups:Group[]=data.groups.map((g:any)=>{if(typeof g.name!=='string')throw new CollectError('SCHEMA','分组名称缺失');return {id:groupId(g.id),name:g.name,member_count:number(g.member_count)}});
-  return {...page(data),groups,belong:groupIds(data.belong_groups),total:number(data.total)};
+  return {...page(data),groups,belong:requireMembership?groupIds(data.belong_groups):[],total:number(data.total)};
 }
 export function parseMembers(data:any){if(!Array.isArray(data?.user_list))throw new CollectError('SCHEMA','分组成员列表缺失');return {...page(data),ids:[...new Set<string>(data.user_list.map((u:any)=>groupId(u.uid)))],total:number(data.total)}}
 type Read=(path:string,params:Record<string,string>)=>Promise<any>;
-export async function readCatalog(read:Read,secUid:string):Promise<GroupCatalog>{
+async function readCatalogPages(read:Read,secUid:string,requireMembership:boolean):Promise<GroupCatalog>{
   const groups=new Map<string,Group>(),belong=new Set<string>(),seen=new Set<string>();let cursor='0',total:number|undefined;
   for(let pages=0;pages<500;pages++){
     if(seen.has(cursor))throw new CollectError('SCHEMA','分组目录分页没有推进');seen.add(cursor);
-    const p=parseCatalog(await read(GROUP_LIST,{cursor,count:'50',member_count:'0',sec_user_id:secUid,group_type:'1',source:'2',sort_type:'0'}));
+    const p=parseCatalog(await read(GROUP_LIST,{cursor,count:'50',member_count:'0',sec_user_id:secUid,group_type:'1',source:'2',sort_type:'0'}),requireMembership);
     if(total!==undefined&&total!==p.total)throw new CollectError('CONFLICT','分组目录在读取期间发生变化，请刷新');total=p.total;
     for(const g of p.groups)groups.set(g.id,g);p.belong.forEach(id=>belong.add(id));
     if(!p.more){if(groups.size!==total||[...belong].some(id=>!groups.has(id)))throw new CollectError('SCHEMA','分组目录不完整');return {groups:[...groups.values()],belong:[...belong]}}
     if(!p.groups.length)break;cursor=p.cursor;
   }throw new CollectError('SCHEMA','分组目录分页未完整读取');
 }
+export const readCatalog=(read:Read,secUid:string)=>readCatalogPages(read,secUid,true);
+export async function readDirectory(read:Read,secUid:string):Promise<{groups:Group[]}>{const {groups}=await readCatalogPages(read,secUid,false);return {groups}}
 export async function readMembers(read:Read,group:Group):Promise<string[]>{
   const ids=new Set<string>(),seen=new Set<string>();let cursor='0',total:number|undefined;
   for(let pages=0;pages<10000;pages++){

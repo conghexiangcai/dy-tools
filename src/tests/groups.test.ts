@@ -2,10 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,rmSync} from 'node:fs';
 import os from 'node:os';import path from 'node:path';
-import {losslessJSON,readCatalog,readMembers,membershipDelta,deltaConfirmed,Group,GROUP_LIST,GROUP_USERS} from '../groups';
+import {losslessJSON,readCatalog,readDirectory,readMembers,membershipDelta,deltaConfirmed,Group,GROUP_LIST,GROUP_USERS} from '../groups';
 import {Store} from '../store';import {GroupService,GroupWire,GroupConnection} from '../group-service';import {CollectError} from '../transport';import {exportText} from '../export';import {matchesGroup} from '../domain';
 const gs:Group[]=[{id:'9223372036854775806',name:'第一组',member_count:1},{id:'9223372036854775805',name:'第二组',member_count:0},{id:'3',name:'手机新加',member_count:0}];
 const user={uid:'7',sec_uid:'MS4wLjABAAAA_TEST_7',nickname:'合成账号'};
+test('目录不依赖个人归属；设置分组仍拒绝缺失归属',async()=>{
+ const read=async()=>({groups:gs,total:gs.length,has_more:0,cursor:0});
+ assert.deepEqual(await readDirectory(read,'self'),{groups:gs});await assert.rejects(readCatalog(read,'target'),/归属缺失/);
+});
+test('无关注快照直接刷新全部分组，失败返回明确结果并保留缓存',async t=>{
+ const f=fixture(t);f.s.activate('200');const m=fake(f.s);m.cx.selfSec='MS4wLjABAAAA_SELF_200';const read=m.cx.read;
+ m.cx.read=async(p,q)=>{if(p===GROUP_LIST){assert.equal(q.sec_user_id,m.cx.selfSec);const d=await read(p,q);delete d.belong_groups;return d}return read(p,q)};
+ const first=await m.service.refresh();assert.equal(first.ok,true);assert.ok(first.checked_at);assert.equal(f.s.groups.state('200').groups.length,3);assert.equal(f.s.snapshot().rows.length,0);assert.equal(f.s.snapshot().group_rows.length,1);
+ m.cx.read=async()=>{throw new CollectError('NETWORK','合成网络中断')};const second=await m.service.refresh();assert.equal(second.ok,false);assert.equal(second.checked_at,first.checked_at);assert.match(second.error!,/本次未更新/);assert.equal(f.s.groups.state('200').groups.length,3);assert.equal(f.s.getReview('100').opened[0],'7');
+});
 function fixture(t:any){const dir=mkdtempSync(path.join(os.tmpdir(),'dy-groups-'));const dbfile=path.join(dir,'data.sqlite');let s=new Store(dbfile);s.activate('100');const r=s.createRun('100',2);s.addPage(r.id,[user,{...user,uid:'8',sec_uid:'MS4wLjABAAAA_TEST_8'}],{offset:2,max_time:0,pages:1},true);s.reviewDelta('100',{select:{ids:['7'],value:true},opened:['7'],settings:{fans:'99'}});t.after(()=>{s.close();rmSync(dir,{recursive:true,force:true})});return {get s(){return s},reopen(){s.close();s=new Store(dbfile);return s}}}
 function fake(store:Store,options:{timeout?:boolean;partial?:boolean;captcha?:boolean;valid?:()=>boolean}={}){
  let memberships=[gs[0].id],writes=0;const sends:{add:string[];del:string[]}[]=[];
