@@ -1,0 +1,17 @@
+[Unit]
+Description=Douyin fanclub daily check-in
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=douyin-checkin
+WorkingDirectory=/opt/douyin-checkin
+ExecStart=/usr/bin/node /opt/douyin-checkin/checkin-cli.js --config /opt/douyin-checkin/config.json --daemon
+Restart=on-failure
+RestartSec=60
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

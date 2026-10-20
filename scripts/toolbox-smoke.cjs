@@ -10,7 +10,7 @@ async function launch(){app=await _electron.launch({executablePath:pkg?.executab
 (async()=>{
  let p=await launch(),errors=[];p.on('pageerror',e=>errors.push(e.message));
  await app.evaluate(({dialog,session})=>{global.testConfirmCount=0;global.testRemoteRequests=[];dialog.showMessageBox=async()=>{global.testConfirmCount++;return {response:0,checkboxChecked:false}};session.fromPartition('persist:douyin-login').webRequest.onBeforeRequest((d,cb)=>{global.testRemoteRequests.push(d.url);cb({cancel:true})})});
- assert.equal(await p.locator('.card').count(),9);await p.screenshot({path:path.join(out,'toolbox-home.png'),fullPage:true});
+ assert.equal(await p.locator('.card').count(),10);await p.screenshot({path:path.join(out,'toolbox-home.png'),fullPage:true});
  await p.locator('[data-tool=following]').click();await p.waitForURL('app://local/index.html');await p.waitForFunction(()=>document.getElementById('match-count').textContent==='1');
  await p.locator('#ignore-selected').click();await p.waitForFunction(()=>document.getElementById('total').textContent==='2');assert.equal((await p.evaluate(()=>desktop.call('snapshot'))).review.opened[0],'1');
  await p.locator('#ignored-list').click();await p.waitForSelector('.entry');assert.ok((await p.locator('#contents').textContent()).includes('合成用户 1'));await p.getByRole('button',{name:'恢复显示',exact:true}).click();await p.waitForFunction(()=>document.getElementById('contents').textContent.includes('忽视名单为空'));

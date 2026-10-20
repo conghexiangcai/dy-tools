@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "credentials_file": "./credentials.json",
+  "data_file": "./data/checkin.sqlite",
+  "schedule": {
+    "enabled": false,
+    "mode": "times",
+    "times": ["08:30", "12:00", "21:15"],
+    "start": "09:00",
+    "repeats": 3,
+    "interval_minutes": 240,
+    "timezone": "Asia/Shanghai"
+  }
+}

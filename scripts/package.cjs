@@ -26,15 +26,19 @@ fs.copyFileSync(path.join(root,'README.md'),path.join(target,'使用说明.md'))
 fs.copyFileSync(path.join(root,'VERIFICATION-'+pkg.version+'.md'),path.join(target,'验证说明.md'));
 fs.copyFileSync(path.join(root,'LICENSE-NOTICE.md'),path.join(target,'许可说明.md'));
 const sourceBase=path.join(release,'抖音整理箱-'+pkg.version+'-源码');const source=fs.existsSync(sourceBase)?sourceBase+'-'+Date.now():sourceBase;fs.mkdirSync(source);
-for(const file of ['src','public','package.json','package-lock.json','tsconfig.json','README.md','VERIFICATION-'+pkg.version+'.md','LICENSE-NOTICE.md','.gitignore'])fs.cpSync(path.join(root,file),path.join(source,file),{recursive:true});
-fs.mkdirSync(path.join(source,'scripts'));for(const file of ['assets.cjs','package.cjs','smoke.cjs','group-smoke.cjs','group-fixture.cjs','fanclub-smoke.cjs','fanclub-fixture.cjs','toolbox-smoke.cjs','chat-smoke.cjs'])fs.copyFileSync(path.join(root,'scripts',file),path.join(source,'scripts',file));
+for(const file of ['src','public','server','package.json','package-lock.json','tsconfig.json','README.md','VERIFICATION-'+pkg.version+'.md','LICENSE-NOTICE.md','.gitignore'])fs.cpSync(path.join(root,file),path.join(source,file),{recursive:true});
+fs.mkdirSync(path.join(source,'scripts'));for(const file of ['assets.cjs','package.cjs','smoke.cjs','group-smoke.cjs','group-fixture.cjs','fanclub-smoke.cjs','fanclub-fixture.cjs','toolbox-smoke.cjs','chat-smoke.cjs','checkin-smoke.cjs'])fs.copyFileSync(path.join(root,'scripts',file),path.join(source,'scripts',file));
 fs.mkdirSync(path.join(source,'resources'));for(const file of templates)fs.copyFileSync(path.join(root,'resources',file),path.join(source,'resources',file));
+const serverBase=path.join(release,'粉丝团打卡-'+pkg.version+'-服务器');const server=fs.existsSync(serverBase)?serverBase+'-'+Date.now():serverBase;fs.mkdirSync(server);
+for(const module of ['cli','wire','domain','schedule','service','store'])fs.copyFileSync(path.join(root,'dist','checkin-'+module+'.js'),path.join(server,'checkin-'+module+'.js'));
+for(const file of ['README.md','config.example.json','credentials.example.json','checkin.service.example'])fs.copyFileSync(path.join(root,'server',file),path.join(server,file));
+fs.writeFileSync(path.join(server,'package.json'),JSON.stringify({name:'douyin-fanclub-checkin',version:pkg.version,private:true,engines:{node:'>=24'},scripts:{check:'node checkin-cli.js --check-auth',inspect:'node checkin-cli.js --inspect',once:'node checkin-cli.js --once',start:'node checkin-cli.js --daemon'}},null,2));
 // Copy only explicit source folders; databases, login sessions, output and node_modules are excluded.
 const quote=s=>"'"+s.replace(/'/g,"''")+"'";
-for(const folder of [target,source]){
+for(const folder of [target,source,server]){
  const zip=folder+'.zip';
  const result=cp.spawnSync('powershell.exe',['-NoProfile','-Command',`Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::CreateFromDirectory(${quote(folder)},${quote(zip)},[System.IO.Compression.CompressionLevel]::Optimal,$true)`],{stdio:'inherit',windowsHide:true});
  if(result.status!==0)throw Error('压缩失败');
 }
-fs.writeFileSync(path.join(release,'latest.json'),JSON.stringify({directory:target,executable:path.join(target,'抖音整理箱.exe'),zip:target+'.zip',sourceZip:source+'.zip'},null,2));
-console.log(JSON.stringify({directory:target,zip:target+'.zip',sourceZip:source+'.zip'},null,2));
+fs.writeFileSync(path.join(release,'latest.json'),JSON.stringify({directory:target,executable:path.join(target,'抖音整理箱.exe'),zip:target+'.zip',sourceZip:source+'.zip',serverDirectory:server,serverZip:server+'.zip'},null,2));
+console.log(JSON.stringify({directory:target,zip:target+'.zip',sourceZip:source+'.zip',serverZip:server+'.zip'},null,2));
