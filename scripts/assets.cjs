@@ -1,9 +1,6 @@
 const fs=require('node:fs'),path=require('node:path');
-const root=path.resolve(__dirname,'..'),legacy=path.resolve(root,'../douyin-screening-2026-09-22');
-fs.mkdirSync(path.join(root,'resources'),{recursive:true});
-for(const [source,dest] of [['screening-results-v3.json','seed.json'],['unfollow-zero-nonmutual-2026-09-24.json','unfollow-history.json'],['report-template-v3.html','report-template.html']]){
-  const out=path.join(root,'resources',dest);if(fs.existsSync(path.join(legacy,source)))fs.copyFileSync(path.join(legacy,source),out);else if(!fs.existsSync(out))throw Error('缺少首次导入数据：'+source);
-}
+const root=path.resolve(__dirname,'..');
+// Templates contain no account data. Builds never read personal history directories.
 const template=fs.readFileSync(path.join(root,'resources/report-template.html'),'utf8');
 let css=template.match(/<style>([\s\S]*?)<\/style>/)[1];
 css+='\n.appbar{margin:18px 30px 0;background:white;border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.appbar .status{width:100%;font-size:13px;color:#526958}.appbar .error{width:100%;margin:0}progress{height:10px;accent-color:var(--green);width:180px}.appbar .spacer{flex:1}.appbar small{color:var(--muted)}.video-times{min-width:150px;white-space:nowrap;font-size:11px;line-height:1.65}.video-times small{display:block;color:var(--muted)}';

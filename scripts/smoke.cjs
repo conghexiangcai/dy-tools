@@ -3,19 +3,29 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output','playwright'
 const profile=path.join(out,'smoke-'+Date.now());
 const packaged=process.argv.includes('--packaged')?JSON.parse(fs.readFileSync(path.join(root,'release','latest.json'),'utf8')):null;
 let app;
-// Seed only the isolated test profile with deterministic publication dates.
-const {Store}=require('../dist/store'),{exportText}=require('../dist/export');
-const fixtureStore=new Store(path.join(profile,'review.sqlite'));fixtureStore.seed(path.join(root,'resources/seed.json'),path.join(root,'resources/unfollow-history.json'));
-const seed=fixtureStore.snapshot(),sample=seed.rows.filter(r=>r.follower_count>10000&&r.works_count>20).slice(0,3);
-const at=Date.now();for(let i=0;i<sample.length;i++)fixtureStore.saveVideos('seed-v3',sample[i].uid,[1,2,3].map(n=>new Date(at-(n+i*10)*86400000).toISOString()),'verified');
-const offline=path.join(out,'offline-review.html');fs.writeFileSync(offline,exportText(fixtureStore.snapshot(),'html',path.join(root,'resources/report-template.html')));fixtureStore.close();
-async function launch(){
- app=await _electron.launch({executablePath:packaged?.executable||require('electron'),args:[...(packaged?[]:[root]),'--data-dir='+profile],timeout:45000});
+// All regression data is synthetic and lives only in an isolated test profile.
+const {Store}=require('../dist/store'),{exportText}=require('../dist/export'),{makeRow}=require('../dist/domain');
+const offline=path.join(out,'offline-review.html');
+function createFixture(){
+ const store=new Store(path.join(profile,'review.sqlite'));store.activate('100','测试账号');const run=store.createRun('100',120);
+ const users=Array.from({length:120},(_,i)=>({uid:String(10000+i),sec_uid:'MS4wLjABAAAA_TEST_'+i,nickname:'测试账号 '+i,unique_id:'test_'+i,secret:0,follow_status:1,follower_count:11000+i,following_count:20000+i,aweme_count:30}));
+ store.addPage(run.id,users,{offset:120,max_time:0,pages:1},true);const at=Date.now();
+ for(const [i,u] of users.entries()){store.saveRow(run.id,makeRow(u,u));store.saveVideos(run.id,u.uid,i<3?[1,2,3].map(n=>new Date(at-(n+i*10)*86400000).toISOString()):[],i<3?'verified':'unknown')}
+ store.update(run.id,{status:'completed'});fs.writeFileSync(offline,exportText(store.snapshot(),'html',path.join(root,'resources/report-template.html')));store.close();
+}
+async function launch(dataDir=profile,expected='120'){
+ app=await _electron.launch({executablePath:packaged?.executable||require('electron'),args:[...(packaged?[]:[root]),'--data-dir='+dataDir],timeout:45000});
  let p;for(let i=0;i<100;i++){p=app.windows().find(p=>p.url()==='app://local/index.html');if(p)break;await new Promise(r=>setTimeout(r,100))}
- assert.ok(p);await p.waitForFunction(()=>document.getElementById('total')?.textContent==='4,278');return p;
+ assert.ok(p);await p.waitForFunction(expected=>document.getElementById('total')?.textContent===expected,expected);return p;
 }
 (async()=>{
- let p=await launch(),errors=[];p.on('pageerror',e=>errors.push(e.message));
+ const fresh=path.join(out,'fresh-'+Date.now());let p=await launch(fresh,'0'),errors=[];p.on('pageerror',e=>errors.push(e.message));
+ const empty=await p.evaluate(()=>desktop.call('snapshot'));assert.equal(empty.summary.account_uid,'');assert.deepEqual(empty.rows,[]);assert.deepEqual(empty.review.selected,[]);assert.deepEqual(empty.review.opened,[]);assert.equal((await p.evaluate(()=>desktop.call('state'))).run,null);
+ assert.ok((await p.locator('#data-status').textContent()).includes('暂无本地名单'));assert.equal(await p.locator('#import-review').isDisabled(),true);assert.equal(await p.locator('#export').isDisabled(),true);
+ await p.locator('#fans').fill('123');assert.equal(await p.locator('#app-error').isHidden(),true);assert.equal(await p.locator('#total').textContent(),'0');
+ await p.screenshot({path:path.join(out,packaged?'fresh-packaged.png':'fresh-desktop.png'),fullPage:true});
+ await app.close();p=await launch(fresh,'0');assert.deepEqual((await p.evaluate(()=>desktop.call('snapshot'))).rows,[]);await app.close();
+ createFixture();p=await launch();p.on('pageerror',e=>errors.push(e.message));
  console.log((await p.locator('body').innerText()).slice(0,600));
  assert.equal(await p.locator('#fans').inputValue(),'10000');assert.equal(await p.locator('#works-limit').inputValue(),'20');
  await p.locator('#fans').fill('');await p.locator('#works-limit').fill('');
@@ -32,7 +42,7 @@ async function launch(){
  await p.locator('#next').click();await p.locator('#rows input[type=checkbox]').first().check();
  assert.equal(await p.locator('#selected-count').textContent(),'51');
  await p.screenshot({path:path.join(out,packaged?'packaged.png':'desktop.png'),fullPage:true});
- const before=await p.evaluate(()=>window.desktop.call('snapshot'));assert.equal(before.rows.length,4278);assert.equal(before.review.selected.length,51);
+ const before=await p.evaluate(()=>window.desktop.call('snapshot'));assert.equal(before.rows.length,120);assert.equal(before.review.selected.length,51);
  // The only mutation below is a local opened record in the isolated test profile.
  await p.evaluate(({owner,id})=>window.desktop.call('review',{owner_uid:owner,delta:{opened:[id]}}),{owner:before.summary.account_uid,id:before.review.selected[0]});
  await app.close();p=await launch();p.on('pageerror',e=>errors.push(e.message));
@@ -58,7 +68,7 @@ async function launch(){
  assert.ok(prefs.every(p=>!p.node&&p.sandbox&&p.isolation));assert.deepEqual(errors,[]);
  // Test standalone HTML in an isolated test window, with no Node bridge.
  const offlinePagePromise=app.waitForEvent('window');await app.evaluate(async({BrowserWindow},file)=>{const win=new BrowserWindow({show:false,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});await win.loadFile(file)},offline);
- const exported=await offlinePagePromise;await exported.waitForFunction(()=>document.getElementById('total')?.textContent==='4,278');
+ const exported=await offlinePagePromise;await exported.waitForFunction(()=>document.getElementById('total')?.textContent==='120');
  await exported.locator('#fans').fill('');await exported.locator('#works-limit').fill('');await exported.locator('#days-max').fill('10');assert.equal(await exported.locator('#match-count').textContent(),'1');assert.equal(await exported.locator('#rows .video-times div').count(),3);
- await app.close();app=null;console.log('PASS: 快照、严格上下限、时间筛选排序及三行展示、跨页勾选、重启恢复、是否打开、搜索、导入时并发编辑、窗口隔离和离线 HTML。');
+ await app.close();app=null;console.log('PASS: 首次及重复启动空名单、未登录筛选无保存错误、合成快照、严格上下限、时间筛选排序及三行展示、跨页勾选、重启恢复、是否打开、搜索、导入时并发编辑、窗口隔离和离线 HTML。');
 })().catch(async e=>{console.error(e);if(app)await app.close().catch(()=>{});process.exitCode=1});

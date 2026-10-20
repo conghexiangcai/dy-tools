@@ -19,11 +19,10 @@ function broadcast(){
 }
 function safeDashboard(){dashboard.show();dashboard.focus();}
 async function probe(){
-  const owner=await transport.owner();store.activate(owner.uid,owner.nickname);const snap=store.snapshot();
-  const seed=JSON.parse(readFileSync(path.join(resources,'seed.json'),'utf8'));
-  const r=seed.rows.find((r:any)=>r.uid==='9007199254740997')||seed.rows.find((r:any)=>r.works_count>0&&r.works_count<50);
-  const u:User={uid:r.uid,sec_uid:r.sec_uid,nickname:r.nickname};const p=await transport.profile(u);
-  const wc=await reviewHost.add(r.profile_url,r.nickname,'probe-'+r.uid);reviewHost.show();
+  const owner=await transport.owner();store.activate(owner.uid,owner.nickname);broadcast();
+  const current=await transport.following(owner,0,0);
+  const u:User=current.users.find(u=>u.secret===0)||current.users[0]||owner;const p=await transport.profile(u);
+  const wc=await reviewHost.add('https://www.douyin.com/user/'+u.sec_uid,u.nickname||'连接检查','probe-'+u.uid);reviewHost.show();
   let label='';for(let i=0;i<8;i++){await new Promise(r=>setTimeout(r,1000));label=await wc.executeJavaScript("document.getElementById('semiTabpost')?.innerText||''").catch(()=>'');if(/\d/.test(label))break;}
   const m=label.replace(/,/g,'').match(/作品\s*(\d+)\s*$/);const visible=m?Number(m[1]):null;
   probeResult={account_uid:owner.uid,sample_uid:u.uid,nickname:u.nickname,api_works:p.aweme_count,page_works:visible,matched:visible!==null&&visible===p.aweme_count,checked_at:new Date().toISOString()};
@@ -75,7 +74,7 @@ if(!app.requestSingleInstanceLock()){app.quit()}else{
   app.on('second-instance',()=>{if(dashboard)safeDashboard()});
   app.whenReady().then(async()=>{
     protocol.handle('app',req=>{const url=new URL(req.url);const allowed=new Set(['index.html','style.css','renderer.js','rules.js','browser.html','browser.js']);const name=url.pathname.slice(1);if(url.hostname!=='local'||!allowed.has(name))return new Response('Not found',{status:404});return net.fetch(pathToFileURL(path.join(publicDir,name)).href);});
-    const userDir=app.getPath('userData');mkdirSync(userDir,{recursive:true});store=new Store(path.join(userDir,'review.sqlite'));store.seed(path.join(resources,'seed.json'),path.join(resources,'unfollow-history.json'));
+    const userDir=app.getPath('userData');mkdirSync(userDir,{recursive:true});store=new Store(path.join(userDir,'review.sqlite'));
     session.fromPartition('persist:douyin-login').setPermissionRequestHandler((_wc,permission,done)=>done(permission==='fullscreen'));
     session.fromPartition('persist:douyin-login').setPermissionCheckHandler((_wc,permission)=>permission==='fullscreen');
     const preload=path.join(__dirname,'preload.js');

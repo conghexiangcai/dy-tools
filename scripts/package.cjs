@@ -7,12 +7,16 @@ const target=fs.existsSync(dest)?dest+'-'+Date.now():dest;
 fs.cpSync(path.dirname(require('electron')),target,{recursive:true});
 fs.renameSync(path.join(target,'electron.exe'),path.join(target,'抖音关注清单.exe'));
 const bundle=path.join(target,'resources','app');fs.mkdirSync(bundle,{recursive:true});
-for(const folder of ['dist','public','resources'])fs.cpSync(path.join(root,folder),path.join(bundle,folder),{recursive:true,filter:src=>!src.split(path.sep).includes('tests')});
+const templates=['report-template.html','desktop-report-template.html'];
+for(const folder of ['dist','public'])fs.cpSync(path.join(root,folder),path.join(bundle,folder),{recursive:true,filter:src=>!src.split(path.sep).includes('tests')});
+fs.mkdirSync(path.join(bundle,'resources'));for(const file of templates)fs.copyFileSync(path.join(root,'resources',file),path.join(bundle,'resources',file));
 fs.writeFileSync(path.join(bundle,'package.json'),JSON.stringify({name:pkg.name,productName:pkg.productName,version:pkg.version,main:pkg.main}));
 fs.copyFileSync(path.join(root,'README.md'),path.join(target,'使用说明.md'));
 fs.copyFileSync(path.join(root,'LICENSE-NOTICE.md'),path.join(target,'许可说明.md'));
 const sourceBase=path.join(release,'抖音关注清单-'+pkg.version+'-源码');const source=fs.existsSync(sourceBase)?sourceBase+'-'+Date.now():sourceBase;fs.mkdirSync(source);
-for(const file of ['src','public','scripts','resources','package.json','package-lock.json','tsconfig.json','README.md','LICENSE-NOTICE.md','.gitignore'])fs.cpSync(path.join(root,file),path.join(source,file),{recursive:true});
+for(const file of ['src','public','package.json','package-lock.json','tsconfig.json','README.md','LICENSE-NOTICE.md','.gitignore'])fs.cpSync(path.join(root,file),path.join(source,file),{recursive:true});
+fs.mkdirSync(path.join(source,'scripts'));for(const file of ['assets.cjs','package.cjs','smoke.cjs'])fs.copyFileSync(path.join(root,'scripts',file),path.join(source,'scripts',file));
+fs.mkdirSync(path.join(source,'resources'));for(const file of templates)fs.copyFileSync(path.join(root,'resources',file),path.join(source,'resources',file));
 // Copy only explicit source folders; databases, login sessions, output and node_modules are excluded.
 const quote=s=>"'"+s.replace(/'/g,"''")+"'";
 for(const folder of [target,source]){

@@ -1,6 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
 import {randomUUID} from 'node:crypto';
-import {mkdirSync,readFileSync,existsSync} from 'node:fs';
+import {mkdirSync} from 'node:fs';
 import {dirname} from 'node:path';
 import {User,Row,Run,Review,makeRow,settingsDefaults,sanitizeSettings,cleanIds,uidValid,classify} from './domain';
 export class Store {
@@ -25,19 +25,6 @@ export class Store {
   close(){this.db.close();}
   owner():string{return (this.db.prepare("SELECT value FROM meta WHERE key='owner'").get() as any)?.value||'';}
   activate(uid:string,name=''){if(!uidValid(uid))throw Error('登录账号无效');this.db.prepare('INSERT INTO accounts(uid,name) VALUES(?,?) ON CONFLICT(uid) DO UPDATE SET name=excluded.name').run(uid,name);this.db.prepare("INSERT INTO meta(key,value) VALUES('owner',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(uid);}
-  seed(path:string,auditPath:string){
-    if(this.db.prepare("SELECT 1 FROM meta WHERE key='seed-v3'").get())return;
-    const payload=JSON.parse(readFileSync(path,'utf8'));const owner=payload.summary.account_uid;
-    this.transaction(()=>{
-      this.activate(owner,'已导入的原账号');const id='seed-v3';const at=payload.summary.profiles_updated_at;
-      this.db.prepare("INSERT INTO runs(id,owner_uid,phase,status,started_at,updated_at,snapshot_at,total_hint) VALUES(?,?,'profiles','completed',?,?,?,?)").run(id,owner,at,at,payload.summary.following_snapshot_at,payload.rows.length);
-      const member=this.db.prepare('INSERT INTO members VALUES(?,?,?)'),profile=this.db.prepare('INSERT INTO profiles(run_id,uid,data,done) VALUES(?,?,?,1)');
-      for(const r of payload.rows){member.run(id,r.uid,JSON.stringify({...r,unique_id:r.account}));profile.run(id,r.uid,JSON.stringify(r));}
-      this.db.prepare('UPDATE accounts SET active_run=? WHERE uid=?').run(id,owner);
-      if(existsSync(auditPath)){const audit=JSON.parse(readFileSync(auditPath,'utf8'));const put=this.db.prepare('INSERT OR REPLACE INTO history VALUES(?,?,?)');for(const r of audit.results||[])if(uidValid(r.uid))put.run(owner,r.uid,JSON.stringify(r));}
-      this.db.prepare("INSERT INTO meta VALUES('seed-v3','1')").run();
-    });
-  }
   createRun(owner:string,total:number):Run{
     const id=randomUUID(),at=new Date().toISOString();
     this.transaction(()=>{this.db.prepare("UPDATE runs SET status='paused',message='已由新更新任务替代' WHERE owner_uid=? AND status!='completed'").run(owner);this.db.prepare("INSERT INTO runs(id,owner_uid,phase,status,started_at,updated_at,total_hint) VALUES(?,?,'following','running',?,?,?)").run(id,owner,at,at,total);});

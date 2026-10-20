@@ -82,7 +82,7 @@ const defaults=window.filterDefaults,ids=Object.keys(defaults),size=50;
 let rows=[],summary={},byId=new Map(),owner='',selected=new Set(),opened=new Set(),lastBatch=[],filtered=[],page=0,task={},batchBusy=false,loading=false,loadAgain=false,saveChain=Promise.resolve(),usageRevision=0;
 const settings=()=>Object.fromEntries(ids.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value]));
 function error(message){$('app-error').textContent=message||'';$('app-error').hidden=!message;}
-function write(delta){const account=owner;usageRevision++;saveChain=saveChain.then(()=>desktop.call('review',{owner_uid:account,delta})).catch(e=>error('使用记录保存失败：'+e.message));return saveChain;}
+function write(delta){const account=owner;usageRevision++;if(!account)return Promise.resolve();saveChain=saveChain.then(()=>desktop.call('review',{owner_uid:account,delta})).catch(e=>error('使用记录保存失败：'+e.message));return saveChain;}
 function setSettings(s){for(const [id,value] of Object.entries({...defaults,...s})){if(!$(id))continue;if($(id).type==='checkbox')$(id).checked=!!value;else $(id).value=String(value)}}
 function apply(reset=true){
   try{
@@ -125,7 +125,7 @@ function render(){
     cell(tr,r.following_state,'state');const times=cell(tr,'','video-times');if(r.recent_video_times?.length){for(const value of r.recent_video_times.slice(0,3)){const line=document.createElement('div');line.textContent=new Date(value).toLocaleString('sv-SE',{timeZone:'Asia/Shanghai',hour12:false});times.append(line)}const ago=document.createElement('small');ago.textContent='最新距今 '+x.age+' 天';times.append(ago)}else times.textContent=r.recent_videos_status==='empty'?'无作品':r.recent_videos_status==='private'?'未知（私密）':['unknown','conflict'].includes(r.recent_videos_status)?'未知（未能可靠读取）':'尚未获取';
     cell(tr,opened.has(r.uid)?'已请求打开主页':'尚未打开','state');cell(tr,'').append(profileLink(r));$('rows').append(tr);
   }
-  if(!filtered.length){const tr=document.createElement('tr'),td=cell(tr,$('filter-error').hidden?'没有符合当前筛选条件的账号':'请修正筛选条件','empty');td.colSpan=12;$('rows').append(tr)}
+  if(!filtered.length){const tr=document.createElement('tr'),td=cell(tr,$('filter-error').hidden?(!owner?'暂无本地名单，请登录抖音后点击更新数据':'没有符合当前筛选条件的账号'):'请修正筛选条件','empty');td.colSpan=12;$('rows').append(tr)}
   wrap.scrollTop=scroll;$('match-count').textContent=fmt(filtered.length);$('page-info').textContent=`共 ${fmt(filtered.length)} 人 · 第 ${filtered.length?page+1:0} / ${Math.ceil(filtered.length/size)} 页 · 每页 ${size} 人`;$('prev').disabled=!page;$('next').disabled=(page+1)*size>=filtered.length;updateActions();
 }
 function showBatch(message){
@@ -141,7 +141,8 @@ async function reload(){
   try{
     await saveChain;const data=await desktop.call('snapshot');const changed=owner!==data.summary.account_uid;owner=data.summary.account_uid;summary=data.summary;rows=data.rows;byId=new Map(rows.map(r=>[r.uid,r]));
     if(changed){selected=new Set(data.review.selected);opened=new Set(data.review.opened);lastBatch=data.review.lastBatch;setSettings(data.review.settings);page=0;}
-    $('total').textContent=fmt(rows.length);$('data-status').textContent=summary.source_label+' · 本次主页更新 '+fmt(summary.profiles_refreshed)+' / '+fmt(summary.total)+' · 作品数未知 '+fmt(rows.length-summary.works_verified);$('data-status').classList.toggle('warning',!summary.refresh_complete);
+    $('total').textContent=fmt(rows.length);$('data-status').textContent=!owner?'暂无本地名单，请登录抖音后点击更新数据':summary.source_label+' · 本次主页更新 '+fmt(summary.profiles_refreshed)+' / '+fmt(summary.total)+' · 作品数未知 '+fmt(rows.length-summary.works_verified);$('data-status').classList.toggle('warning',!!owner&&!summary.refresh_complete);
+    $('import-review').disabled=!owner;$('export-review').disabled=!owner;$('export').disabled=!rows.length;
     $('footer').textContent='名单同步：'+date(summary.following_snapshot_at)+' · 指标更新：'+date(summary.profiles_updated_at)+' · 视频时间更新：'+date(summary.videos_updated_at)+'。打开记录不表示已取关；手动取关后的变化将在下次更新时反映。';apply(false);if(changed)showBatch();
   }catch(e){error(e.message)}finally{loading=false;if(loadAgain){loadAgain=false;setTimeout(reload,100)}}
 }
