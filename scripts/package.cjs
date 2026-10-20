@@ -1,5 +1,6 @@
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
-const root=path.resolve(__dirname,'..'),release=path.join(root,'release'),name='抖音关注清单-win-x64',dest=path.join(release,name);
+const pkg=require('../package.json');
+const root=path.resolve(__dirname,'..'),release=path.join(root,'release'),name='抖音关注清单-'+pkg.version+'-win-x64',dest=path.join(release,name);
 fs.mkdirSync(release,{recursive:true});
 // Do not remove previous distributions. A second build uses a timestamped directory.
 const target=fs.existsSync(dest)?dest+'-'+Date.now():dest;
@@ -7,10 +8,10 @@ fs.cpSync(path.dirname(require('electron')),target,{recursive:true});
 fs.renameSync(path.join(target,'electron.exe'),path.join(target,'抖音关注清单.exe'));
 const bundle=path.join(target,'resources','app');fs.mkdirSync(bundle,{recursive:true});
 for(const folder of ['dist','public','resources'])fs.cpSync(path.join(root,folder),path.join(bundle,folder),{recursive:true,filter:src=>!src.split(path.sep).includes('tests')});
-const pkg=require('../package.json');fs.writeFileSync(path.join(bundle,'package.json'),JSON.stringify({name:pkg.name,productName:pkg.productName,version:pkg.version,main:pkg.main}));
+fs.writeFileSync(path.join(bundle,'package.json'),JSON.stringify({name:pkg.name,productName:pkg.productName,version:pkg.version,main:pkg.main}));
 fs.copyFileSync(path.join(root,'README.md'),path.join(target,'使用说明.md'));
 fs.copyFileSync(path.join(root,'LICENSE-NOTICE.md'),path.join(target,'许可说明.md'));
-const source=path.join(release,'抖音关注清单-源码-'+Date.now());fs.mkdirSync(source);
+const sourceBase=path.join(release,'抖音关注清单-'+pkg.version+'-源码');const source=fs.existsSync(sourceBase)?sourceBase+'-'+Date.now():sourceBase;fs.mkdirSync(source);
 for(const file of ['src','public','scripts','resources','package.json','package-lock.json','tsconfig.json','README.md','LICENSE-NOTICE.md','.gitignore'])fs.cpSync(path.join(root,file),path.join(source,file),{recursive:true});
 // Copy only explicit source folders; databases, login sessions, output and node_modules are excluded.
 const quote=s=>"'"+s.replace(/'/g,"''")+"'";

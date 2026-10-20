@@ -1,12 +1,13 @@
 import {Store} from './store';
-import {Transport,CollectError} from './transport';
+import {Transport,CollectError,VideoPage,newestThree} from './transport';
 import {User,Run,makeRow,count} from './domain';
 const sleep=(ms:number)=>new Promise<void>(r=>setTimeout(r,ms));
 export class Collector {
   busy=false;private paused=false;private ownerUser:User|null=null;countdown=0;
   private pendingStart:{status:Run['status'];message:string}|null=null;
+  private requestDurations:number[]=[];
   constructor(public store:Store,public transport:Transport,public changed:()=>void,private delay=sleep){}
-  state(){const saved=this.store.latest();const run=this.pendingStart?{id:'pending-login',phase:'following',pages:0,...this.pendingStart}:saved;return {run,progress:!this.pendingStart&&saved?this.store.progress(saved.id):{total:0,completed:0},busy:this.busy,countdown:this.countdown};}
+  state(){const saved=this.store.latest();const run=this.pendingStart?{id:'pending-login',phase:'following',pages:0,...this.pendingStart}:saved;const progress=!this.pendingStart&&saved?this.store.progress(saved.id):{total:0,completed:0,videos:0};const average=this.requestDurations.length?this.requestDurations.reduce((a,b)=>a+b)/this.requestDurations.length:1600;const expected=Math.max(progress.total,saved?.total_hint||0);const remaining=run?.phase==='following'?Math.ceil(Math.max(0,expected-progress.total)/20)+2*expected:Math.max(0,progress.total-progress.completed)+Math.max(0,progress.total-progress.videos);const etaSeconds=this.busy&&run?.status==='running'&&!this.pendingStart?Math.ceil(remaining*average/1000):null;return {run,progress,busy:this.busy,countdown:this.countdown,etaSeconds};}
   pause(){this.paused=true;if(this.pendingStart)this.pendingStart={status:'paused',message:'已暂停，点击继续开始更新'};else {const r=this.store.latest();if(r&&r.status!=='completed')this.store.update(r.id,{status:'paused',message:'已暂停，可从断点继续'});}this.changed();}
   private checkPause(){if(this.paused)throw new CollectError('PAUSED','已暂停');}
   async start(){
@@ -28,7 +29,7 @@ export class Collector {
   }
   private async request<T>(fn:()=>Promise<T>,target?:User):Promise<T>{
     for(let attempt=0;;attempt++){
-      this.checkPause();try{return await fn()}catch(e:any){
+      this.checkPause();try{const started=Date.now();const result=await fn();this.requestDurations.push(Date.now()-started+1000);if(this.requestDurations.length>30)this.requestDurations.shift();return result}catch(e:any){
         this.checkPause();if(e.code==='LOGIN'||e.code==='ACCOUNT_CHANGED'||e.code==='SCHEMA')throw e;
         if(await this.transport.challenge(target,attempt===0))throw new CollectError('CAPTCHA','需要手动完成验证码');
         if(!['NETWORK','TIMEOUT','HTTP_500','HTTP_502','HTTP_503','HTTP_504'].includes(e.code)||attempt>=2)throw e;
@@ -47,10 +48,24 @@ export class Collector {
         this.store.addPage(id,page.users,{offset:run.offset+page.users.length,max_time:page.min_time,pages:run.pages+1},!page.more);this.changed();run=this.store.run(id)!;await this.delay(1000);
       }
       for(;;){
-        this.checkPause();const u=this.store.nextUser(id);if(!u)break;target=u;
-        const p=await this.request(()=>this.transport.profile(u),u);this.checkPause();
-        if(String(p?.uid)!==u.uid)throw new CollectError('SCHEMA','详情账号身份不匹配，已暂停');
-        this.store.saveRow(id,makeRow(u,p));this.changed();target=undefined;await this.delay(1000);
+        this.checkPause();const next=this.store.nextVideos(id);
+        if(!next){
+          const u=this.store.nextUser(id);if(!u)break;target=u;this.store.update(id,{phase:'profiles'});this.changed();
+          const p=await this.request(()=>this.transport.profile(u),u);this.checkPause();
+          if(String(p?.uid)!==u.uid)throw new CollectError('SCHEMA','详情账号身份不匹配，已暂停');
+          this.store.saveRow(id,makeRow(u,p));this.changed();target=undefined;await this.delay(1000);continue;
+        }
+        target=next.user;this.store.update(id,{phase:'videos'});this.changed();
+        if(next.row.works_status==='private'||next.row.works_status==='privacy_unknown'){this.store.saveVideos(id,target.uid,[],'private');this.changed();target=undefined;continue}
+        if(next.row.works_count===0){this.store.saveVideos(id,target.uid,[],'empty');this.changed();target=undefined;continue}
+        let cursor=0,all:VideoPage['videos']=[],valid=true;
+        for(let pages=0;;pages++){
+          const data=await this.request(()=>this.transport.videos(target!,cursor),target);this.checkPause();all.push(...data.videos);valid=valid&&data.valid;
+          if(!valid||!data.more||new Set(all.filter(v=>!v.pinned).map(v=>v.id)).size>=3)break;
+          if(data.cursor===cursor||pages>=4)throw new CollectError('SCHEMA','作品列表分页未推进或无法确定最新发布时间');
+          cursor=data.cursor;await this.delay(1000);
+        }
+        this.store.saveVideos(id,target.uid,valid?newestThree(all):[],!valid?'unknown':all.length?'verified':'unknown');this.changed();target=undefined;await this.delay(1000);
       }
       this.store.update(id,{status:'completed',message:'采集完成，未知数量按原口径保留',error_uid:null});
     }catch(e){if(target)this.store.update(id,{error_uid:target.uid});await this.block(id,e);}finally{this.busy=false;this.changed();}

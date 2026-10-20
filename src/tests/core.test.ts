@@ -5,8 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {Store} from '../store';
 import {Collector} from '../collector';
-import {CollectError,Transport,parseFollowing,parseOwner} from '../transport';
-import {User,makeRow,classify,settingsDefaults} from '../domain';
+import {CollectError,Transport,parseFollowing,parseOwner,parseVideos,newestThree} from '../transport';
+import {User,makeRow,classify,settingsDefaults,latestAge,matchesAge} from '../domain';
 import {exportText} from '../export';
 
 const user=(id:string):User=>({uid:id,sec_uid:'MS4wLjABAAAA'+id,nickname:'账号 '+id,follower_count:10000,follow_status:1,secret:0});
@@ -14,7 +14,7 @@ const profile=(u:User,works:number|null=20)=>({...u,following_count:10000,aweme_
 const config=(extra:any={})=>({...settingsDefaults,...extra});
 function fixture(t:any){const dir=mkdtempSync(path.join(os.tmpdir(),'dy-review-'));let store=new Store(path.join(dir,'db.sqlite'));store.activate('100','本人');t.after(()=>{store.close();rmSync(dir,{recursive:true,force:true})});return {dir,get store(){return store},reopen(){store.close();store=new Store(path.join(dir,'db.sqlite'));return store}}}
 async function idle(c:Collector){for(let i=0;i<300&&c.busy;i++)await new Promise(r=>setTimeout(r,1));assert.equal(c.busy,false,'采集任务应已退出');}
-function fake(extra:Partial<Transport>={}):Transport{return {owner:async()=>({...user('100'),following_count:2}),following:async()=>({users:[user('1'),user('2')],more:false,min_time:0}),profile:async u=>profile(u),challenge:async()=>false,show:()=>{},...extra}}
+function fake(extra:Partial<Transport>={}):Transport{return {owner:async()=>({...user('100'),following_count:2}),following:async()=>({users:[user('1'),user('2')],more:false,min_time:0}),profile:async u=>profile(u),videos:async()=>({videos:[],more:false,cursor:0,valid:true}),challenge:async()=>false,show:()=>{},...extra}}
 
 test('严格上下边界、或/且以及未知值三态判断',()=>{
   const r=makeRow(user('1'),profile(user('1')));
@@ -79,7 +79,32 @@ test('新任务重新采集，断点仅跳过本任务成功项，记录导入�
 test('真实分页协议、重复账号去重和正常完成',async t=>{
   const {store:s}=fixture(t),calls:any[]=[];
   const c=new Collector(s,fake({following:async(_owner,offset,time)=>{calls.push([offset,time]);return offset===0?{users:[user('1')],more:true,min_time:123}:{users:[user('1'),user('2')],more:false,min_time:0}}}),()=>{},async()=>{});
-  await c.start();await idle(c);assert.deepEqual(calls,[[0,0],[1,123]]);assert.equal(s.latest()?.status,'completed');assert.deepEqual(s.progress(s.latest()!.id),{total:2,completed:2});
+  await c.start();await idle(c);assert.deepEqual(calls,[[0,0],[1,123]]);assert.equal(s.latest()?.status,'completed');assert.deepEqual(s.progress(s.latest()!.id),{total:2,completed:2,videos:2});
+});
+test('最新三条按发布时间排序，处理置顶及重复；缺失/错作者明确区分',()=>{
+ const data={has_more:0,max_cursor:0,aweme_list:[{aweme_id:'1',create_time:1000,is_top:1,author_uid:'1'},{aweme_id:'2',create_time:4000,is_top:0,author_uid:'1'},{aweme_id:'3',create_time:3000,is_top:0,author_uid:'1'},{aweme_id:'4',create_time:2000,is_top:0,author_uid:'1'},{aweme_id:'2',create_time:4000,is_top:0,author_uid:'1'}]};
+ assert.deepEqual(newestThree(parseVideos(data,user('1')).videos),[4000,3000,2000].map(v=>new Date(v*1000).toISOString()));
+ assert.throws(()=>parseVideos(data,user('2')),/身份/);
+ assert.equal(parseVideos({...data,aweme_list:[{aweme_id:'1'}]},user('1')).valid,false);
+});
+test('最新距今天数、时区跨日、严格上下限、未知和未来日期',()=>{
+ const now=Date.parse('2026-10-01T00:01:00+08:00');
+ assert.equal(latestAge({recent_video_times:['2026-09-30T23:59:00+08:00']},now),1);
+ assert.equal(latestAge({recent_video_times:['2026-10-01T00:00:00+08:00']},now),0);
+ assert.equal(latestAge({recent_video_times:[]},now),null);
+ assert.equal(latestAge({recent_video_times:['2026-10-02T00:00:00+08:00']},now),null);
+ assert.equal(matchesAge(null,config()),true);assert.equal(matchesAge(null,config({'days-min':'10'})),false);
+ assert.equal(matchesAge(10,config({'days-min':'10'})),false);assert.equal(matchesAge(11,config({'days-min':'10'})),true);
+ assert.equal(matchesAge(10,config({'days-max':'10'})),false);assert.equal(matchesAge(9,config({'days-max':'10'})),true);
+ assert.equal(matchesAge(10,config({'days-min':'5','days-max':'11'})),true);
+ assert.throws(()=>matchesAge(10,config({'days-min':'-2'})));
+});
+test('视频阶段单独断点，旧详情不重取，私密/零作品不请求视频接口',async t=>{
+ const {store:s}=fixture(t);const r=s.createRun('100',3);s.addPage(r.id,[user('1'),user('2'),user('3')],{offset:3,max_time:0,pages:1},true);
+ s.saveRow(r.id,makeRow(user('1'),profile(user('1'),0)));s.saveRow(r.id,makeRow(user('2'),{...profile(user('2')),secret:1}));s.saveRow(r.id,makeRow(user('3'),profile(user('3'),9)));
+ let calls=0,fail=true;const c=new Collector(s,fake({profile:async()=>{throw Error('不能重新读取已有详情')},videos:async()=>{calls++;if(fail)throw new CollectError('TIMEOUT','超时');return {videos:[{id:'4',time:1780000000,pinned:false}],more:false,cursor:0,valid:true}}}),()=>{},async()=>{});
+ await c.resume();await idle(c);assert.equal(s.latest()!.phase,'videos');assert.equal(s.latest()!.status,'error');assert.equal(calls,3);assert.equal(s.progress(r.id).videos,2);
+ fail=false;await c.resume();await idle(c);assert.equal(calls,4);assert.equal(s.progress(r.id).videos,3);assert.equal(s.snapshot().rows[0].recent_videos_status,'empty');assert.equal(s.snapshot().rows[1].recent_videos_status,'private');assert.equal(s.snapshot().rows[2].recent_video_times?.length,1);
 });
 test('网络错误最多重试两次，不将失败写成零，继续可恢复',async t=>{
   const {store:s}=fixture(t);let attempts=0,fail=true;

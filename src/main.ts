@@ -89,6 +89,7 @@ if(!app.requestSingleInstanceLock()){app.quit()}else{
     });
     await dashboard.loadURL(appURL+'index.html');dashboard.show();
     if(process.argv.includes('--login')){await transport.ensure();transport.show();}
+    if(process.argv.includes('--resume')&&store.latest()?.status!=='completed')await collector.resume(false);
     dashboard.on('closed',()=>{if(!quitting)app.quit()});
   }).catch(e=>{dialog.showErrorBox('启动失败',String(e.message));app.quit();});
   app.on('before-quit',()=>{quitting=true;collector?.pause();if(changeTimer)clearTimeout(changeTimer);if(loginHost&&!loginHost.window.isDestroyed())loginHost.destroy();if(reviewHost&&!reviewHost.window.isDestroyed())reviewHost.destroy();});

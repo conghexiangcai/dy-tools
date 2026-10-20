@@ -9,17 +9,18 @@ function setSettings(s){for(const [id,value] of Object.entries({...defaults,...s
 function classify(r){return window.classifyRow(r,settings())}
 function apply(reset=true){
   try{
-    const s=settings();for(const id of ['fans','fans-min','works-limit','works-min'])if($(id).validity.badInput)throw Error('阈值请输入非负整数');
+    const s=settings();for(const id of ['fans','fans-min','works-limit','works-min','days-min','days-max'])if($(id).validity.badInput)throw Error('阈值请输入非负整数');
     // Validate even when the currently displayed account has no rows.
     window.classifyRow({follower_count:null,following_count:null,works_count:null},s);
+    window.matchesAge(null,s);
     const labels=[];for(const [id,label,op] of [['fans','粉丝','<'],['fans-min','粉丝','>'],['works-limit','作品','<'],['works-min','作品','>']])if(String(s[id]).trim()!=='')labels.push(label+' '+op+' '+fmt(Number(s[id])));if(s['following-greater'])labels.push('关注 > 粉丝');
     $('rule').textContent=labels.length?labels.join(s.logic==='or'?'，或 ':'，且 '):'未启用数值条件，显示全部账号。';
     const needle=String(s.search).trim().toLowerCase();
-    filtered=rows.map(r=>({r,...classify(r)})).filter(x=>{
+    filtered=rows.map(r=>({r,age:window.latestAge(r),...classify(r)})).filter(x=>{
       const r=x.r;return (!needle||(r.nickname+' '+r.account).toLowerCase().includes(needle))&&(!s.decision||x.state===s.decision)&&(!s.mutual||(s.mutual==='yes'?r.mutual_follow===true:s.mutual==='no'?r.mutual_follow===false:r.mutual_follow===null))&&(!s['works-state']||(s['works-state']==='known'?r.works_count!==null:r.works_count===null))&&(!s['opened-state']||(s['opened-state']==='opened'?opened.has(r.uid):!opened.has(r.uid)));
-    });
+    }).filter(x=>window.matchesAge(x.age,s));
     const [field,dir]=String(s.sort).split('_'),key={difference:'following_minus_followers',fans:'follower_count',works:'works_count',following:'following_count'}[field]||'following_minus_followers';
-    filtered.sort((a,b)=>{const x=a.r[key],y=b.r[key];if(x===null&&y!==null)return 1;if(y===null&&x!==null)return -1;return (x===null?0:(x-y)*(dir==='desc'?-1:1))||a.r.uid.localeCompare(b.r.uid)});
+    filtered.sort((a,b)=>{const x=field==='recency'?a.age:a.r[key],y=field==='recency'?b.age:b.r[key];if(x===null&&y!==null)return 1;if(y===null&&x!==null)return -1;return (x===null?0:(x-y)*(dir==='desc'?-1:1))||a.r.uid.localeCompare(b.r.uid)});
     page=reset?0:Math.min(page,Math.max(0,Math.ceil(filtered.length/size)-1));$('filter-error').hidden=true;render();
   }catch(e){$('filter-error').textContent=e.message;$('filter-error').hidden=false;filtered=[];page=0;render();}
 }
@@ -44,9 +45,10 @@ function render(){
     const works=cell(tr,fmt(r.works_count),'number');works.title=(r.works_count===null?'作品数未知：'+({private:'私密账号',privacy_unknown:'隐私状态未知',not_checked:'尚未采集',request_failed:'未能读取',conflict:'来源冲突',missing_count:'接口未返回数量'}[r.works_status]||'尚未核实'):'主页详情已读取')+' · '+date(r.checked_at);
     const pill=document.createElement('span');pill.className='pill '+(r.mutual_follow===true?'mutual':r.mutual_follow===null?'unknown':'');pill.textContent=r.mutual_follow===true?'互关':r.mutual_follow===false?'未互关':'未知';cell(tr,'').append(pill);
     const c=cell(tr,'','conditions');for(const label of x.matched.length?x.matched:[x.state==='pending'?'数据未知，待确认':$('rule').textContent.startsWith('未启用')?'不限':'未命中']){const span=document.createElement('span');span.textContent=label;c.append(span)}
-    cell(tr,r.following_state,'state');cell(tr,opened.has(r.uid)?'已请求打开主页':'尚未打开','state');cell(tr,'').append(profileLink(r));$('rows').append(tr);
+    cell(tr,r.following_state,'state');const times=cell(tr,'','video-times');if(r.recent_video_times?.length){for(const value of r.recent_video_times.slice(0,3)){const line=document.createElement('div');line.textContent=new Date(value).toLocaleString('sv-SE',{timeZone:'Asia/Shanghai',hour12:false});times.append(line)}const ago=document.createElement('small');ago.textContent='最新距今 '+x.age+' 天';times.append(ago)}else times.textContent=r.recent_videos_status==='empty'?'无作品':r.recent_videos_status==='private'?'未知（私密）':r.recent_videos_status==='unknown'?'未知（未能读取）':'尚未获取';
+    cell(tr,opened.has(r.uid)?'已请求打开主页':'尚未打开','state');cell(tr,'').append(profileLink(r));$('rows').append(tr);
   }
-  if(!filtered.length){const tr=document.createElement('tr'),td=cell(tr,$('filter-error').hidden?'没有符合当前筛选条件的账号':'请修正筛选条件','empty');td.colSpan=11;$('rows').append(tr)}
+  if(!filtered.length){const tr=document.createElement('tr'),td=cell(tr,$('filter-error').hidden?'没有符合当前筛选条件的账号':'请修正筛选条件','empty');td.colSpan=12;$('rows').append(tr)}
   wrap.scrollTop=scroll;$('match-count').textContent=fmt(filtered.length);$('page-info').textContent=`共 ${fmt(filtered.length)} 人 · 第 ${filtered.length?page+1:0} / ${Math.ceil(filtered.length/size)} 页 · 每页 ${size} 人`;$('prev').disabled=!page;$('next').disabled=(page+1)*size>=filtered.length;updateActions();
 }
 function showBatch(message){
@@ -67,9 +69,10 @@ async function reload(){
   }catch(e){error(e.message)}finally{loading=false;if(loadAgain){loadAgain=false;setTimeout(reload,100)}}
 }
 function renderTask(t){
-  task=t||{};const r=task.run,p=task.progress||{completed:0,total:0};const words={running:r?.phase==='following'?'正在读取关注列表':'正在读取主页详情',paused:'已暂停',waiting_login:'等待登录',waiting_verification:'等待手动验证',cooldown:'验证后等待 '+(task.countdown||0)+' 秒',error:'已暂停，等待重试',completed:'采集完成'};
-  $('task-status').textContent=(r?`${words[r.status]||r.status} · ${r.phase==='following'?p.total+' 个账号，'+r.pages+' 页':p.completed+' / '+p.total} · ${r.message||''}`:'尚未开始更新，先登录抖音并检查连接')+(task.notice?' · '+task.notice:'');
-  $('progress').max=Math.max(1,p.total);$('progress').value=p.completed;$('refresh').disabled=!!task.busy;$('connect').disabled=!!task.busy;$('pause').disabled=!task.busy;$('resume').disabled=!!task.busy||!r||r.status==='completed';$('verified').hidden=!['waiting_verification','cooldown'].includes(r?.status);$('verified').disabled=!!task.busy;
+  task=t||{};const r=task.run,p=task.progress||{completed:0,total:0,videos:0};const words={running:r?.phase==='following'?'正在读取关注列表':r?.phase==='videos'?'正在读取视频发布时间':'正在读取主页详情',paused:'已暂停',waiting_login:'等待登录',waiting_verification:'等待手动验证',cooldown:'验证后等待 '+(task.countdown||0)+' 秒',error:'已暂停，等待重试',completed:'采集完成'};
+  const sec=task.etaSeconds,minutes=Math.ceil(sec/60),eta=sec===null||sec===undefined?'':` · 预计剩余 ${minutes<60?minutes+' 分钟':Math.floor(minutes/60)+' 小时 '+minutes%60+' 分钟'}（不含暂停与验证）`;
+  $('task-status').textContent=(r?`${words[r.status]||r.status} · ${r.phase==='following'?p.total+' 个账号，'+r.pages+' 页':'详情 '+p.completed+' / '+p.total+' · 视频时间 '+(p.videos||0)+' / '+p.total} · ${r.message||''}`:'尚未开始更新，先登录抖音并检查连接')+eta+(task.notice?' · '+task.notice:'');
+  $('progress').max=Math.max(1,p.total*2);$('progress').value=p.completed+(p.videos||0);$('refresh').disabled=!!task.busy;$('connect').disabled=!!task.busy;$('pause').disabled=!task.busy;$('resume').disabled=!!task.busy||!r||r.status==='completed';$('verified').hidden=!['waiting_verification','cooldown'].includes(r?.status);$('verified').disabled=!!task.busy;
 }
 async function act(method,payload){error('');try{const data=await desktop.call(method,payload);renderTask(await desktop.call('state'));return data}catch(e){error(e.message);return null}}
 $('login').onclick=()=>act('login');$('connect').onclick=async()=>{const p=await act('probe');if(p){await reload();error(p.matched?'':`样本接口作品数 ${p.api_works}；主页数 ${p.page_works??'尚未读取'}，请查看样本页面。`)}};
@@ -78,7 +81,7 @@ $('export').onclick=()=>act('export',{format:$('export-format').value});$('expor
 function selectPage(value){const ids=pageRows().map(x=>x.r.uid);ids.forEach(id=>value?selected.add(id):selected.delete(id));write({select:{ids,value}});render()}
 $('select-page').onclick=()=>selectPage(true);$('unselect-page').onclick=()=>selectPage(false);$('check-page').onchange=()=>selectPage($('check-page').checked);$('clear-selection').onclick=()=>{selected.clear();write({clearSelected:true});render()};
 $('open-next').onclick=()=>openBatch(eligible().slice(0,Number($('batch-size').value)||5));$('reopen').onclick=()=>openBatch(lastBatch.filter(id=>byId.has(id)));$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};
-for(const id of ids)$(id).addEventListener(['search','fans','fans-min','works-limit','works-min'].includes(id)?'input':'change',()=>{if(id==='batch-size')updateActions();else apply();write({settings:settings()})});
+for(const id of ids)$(id).addEventListener(['search','fans','fans-min','works-limit','works-min','days-min','days-max'].includes(id)?'input':'change',()=>{if(id==='batch-size')updateActions();else apply();write({settings:settings()})});
 $('reset').onclick=()=>{setSettings(defaults);apply();write({settings:settings()})};
 desktop.onChange(e=>{if(e.task)renderTask({...e.task,notice:e.notice});if(e.version)reload()});
 setSettings(defaults);reload();desktop.call('state').then(renderTask).catch(e=>error(e.message));

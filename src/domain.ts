@@ -1,9 +1,9 @@
 export type User = { uid: string; sec_uid: string; nickname?: string; unique_id?: string; short_id?: string; follower_count?: number; following_count?: number; follow_status?: number; secret?: number };
-export type Row = { uid: string; sec_uid: string; nickname: string; account: string; follower_count: number|null; following_count: number|null; works_count: number|null; works_status: string; mutual_follow: boolean|null; follow_status: number|null; following_minus_followers: number|null; profile_url: string; checked_at: string|null; profile_status: string; following_state: string; [key:string]: unknown };
+export type Row = { uid: string; sec_uid: string; nickname: string; account: string; follower_count: number|null; following_count: number|null; works_count: number|null; works_status: string; mutual_follow: boolean|null; follow_status: number|null; following_minus_followers: number|null; profile_url: string; checked_at: string|null; profile_status: string; following_state: string; recent_video_times?:string[]; recent_videos_status?:string; videos_checked_at?:string; [key:string]: unknown };
 export type Review = { selected: string[]; opened: string[]; lastBatch: string[]; settings: Record<string,string|boolean> };
 export type Status = 'running'|'paused'|'waiting_login'|'waiting_verification'|'cooldown'|'error'|'completed';
-export type Run = { id:string; owner_uid:string; phase:'following'|'profiles'; status:Status; offset:number; max_time:number; pages:number; started_at:string; updated_at:string; snapshot_at:string|null; message:string; total_hint:number; error_uid:string|null };
-export const settingsDefaults: Record<string,string|boolean> = {fans:'10000','fans-min':'','works-limit':'20','works-min':'',logic:'or',mutual:'',decision:'match','works-state':'','opened-state':'',sort:'difference_desc','following-greater':false,search:'','batch-size':'5'};
+export type Run = { id:string; owner_uid:string; phase:'following'|'profiles'|'videos'; status:Status; offset:number; max_time:number; pages:number; started_at:string; updated_at:string; snapshot_at:string|null; message:string; total_hint:number; error_uid:string|null };
+export const settingsDefaults: Record<string,string|boolean> = {fans:'10000','fans-min':'','works-limit':'20','works-min':'','days-min':'','days-max':'',logic:'or',mutual:'',decision:'match','works-state':'','opened-state':'',sort:'difference_desc','following-greater':false,search:'','batch-size':'5'};
 export const uidValid = (s:unknown): s is string => typeof s==='string' && /^\d{1,32}$/.test(s);
 export const count = (x:unknown):number|null => typeof x==='number' && Number.isSafeInteger(x) && x>=0 ? x:null;
 export function cleanUser(x:any):User {
@@ -42,4 +42,13 @@ export function classify(row:Row,settings:Record<string,string|boolean>){
   if(settings['following-greater'])values.push({label:'关注 > 粉丝',value:row.following_count===null||row.follower_count===null?null:row.following_count>row.follower_count});
   const vals=values.map(x=>x.value);const state=!vals.length?'match':settings.logic==='and'?(vals.includes(false)?'excluded':vals.includes(null)?'pending':'match'):(vals.includes(true)?'match':vals.includes(null)?'pending':'excluded');
   return {state,matched:values.filter(x=>x.value===true).map(x=>x.label)};
+}
+// China calendar days, so midnight and future clock errors have explicit behavior.
+export function latestAge(row:Pick<Row,'recent_video_times'>,now=Date.now()):number|null{
+  const dates=row.recent_video_times;if(!Array.isArray(dates)||!dates.length)return null;
+  const t=Date.parse(dates[0]);if(!Number.isFinite(t)||t>now+60000)return null;
+  return Math.max(0,Math.floor((now+28800000)/86400000)-Math.floor((t+28800000)/86400000));
+}
+export function matchesAge(age:number|null,settings:Record<string,string|boolean>):boolean{
+  let match=true;for(const [key,op] of [['days-min','gt'],['days-max','lt']]){const raw=String(settings[key]??'').trim();if(!raw)continue;const n=Number(raw);if(!Number.isSafeInteger(n)||n<0)throw Error('发布时间天数请输入非负整数');if(age===null||(op==='gt'?age<=n:age>=n))match=false;}return match;
 }

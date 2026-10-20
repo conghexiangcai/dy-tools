@@ -3,6 +3,12 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output','playwright'
 const profile=path.join(out,'smoke-'+Date.now());
 const packaged=process.argv.includes('--packaged')?JSON.parse(fs.readFileSync(path.join(root,'release','latest.json'),'utf8')):null;
 let app;
+// Seed only the isolated test profile with deterministic publication dates.
+const {Store}=require('../dist/store'),{exportText}=require('../dist/export');
+const fixtureStore=new Store(path.join(profile,'review.sqlite'));fixtureStore.seed(path.join(root,'resources/seed.json'),path.join(root,'resources/unfollow-history.json'));
+const seed=fixtureStore.snapshot(),sample=seed.rows.filter(r=>r.follower_count>10000&&r.works_count>20).slice(0,3);
+const at=Date.now();for(let i=0;i<sample.length;i++)fixtureStore.saveVideos('seed-v3',sample[i].uid,[1,2,3].map(n=>new Date(at-(n+i*10)*86400000).toISOString()),'verified');
+const offline=path.join(out,'offline-review.html');fs.writeFileSync(offline,exportText(fixtureStore.snapshot(),'html',path.join(root,'resources/report-template.html')));fixtureStore.close();
 async function launch(){
  app=await _electron.launch({executablePath:packaged?.executable||require('electron'),args:[...(packaged?[]:[root]),'--data-dir='+profile],timeout:45000});
  let p;for(let i=0;i<100;i++){p=app.windows().find(p=>p.url()==='app://local/index.html');if(p)break;await new Promise(r=>setTimeout(r,100))}
@@ -14,6 +20,12 @@ async function launch(){
  assert.equal(await p.locator('#fans').inputValue(),'10000');assert.equal(await p.locator('#works-limit').inputValue(),'20');
  await p.locator('#fans').fill('');await p.locator('#works-limit').fill('');
  await p.locator('#fans-min').fill('10000');await p.locator('#works-min').fill('20');await p.locator('#logic').selectOption('and');
+ await p.locator('#days-max').fill('10');assert.equal(await p.locator('#match-count').textContent(),'1');
+ assert.equal(await p.locator('#rows .video-times div').count(),3);assert.ok((await p.locator('#rows .video-times').innerText()).includes('最新距今 1 天'));
+ await p.locator('#days-max').fill('');await p.locator('#days-min').fill('10');assert.equal(await p.locator('#match-count').textContent(),'2');
+ await p.locator('#days-min').fill('');await p.locator('#sort').selectOption('recency_desc');
+ assert.ok((await p.locator('#rows .video-times').first().innerText()).includes('最新距今 21 天'));
+ await p.locator('#sort').selectOption('difference_desc');
  const counts=await p.locator('#rows tr').evaluateAll(trs=>trs.map(tr=>[tr.children[2]?.textContent,tr.children[5]?.textContent]));
  assert.ok(counts.length);assert.ok(counts.every(([fans,works])=>Number(fans.replace(/,/g,''))>10000&&Number(works.replace(/,/g,''))>20));
  await p.locator('#select-page').click();assert.equal(await p.locator('#selected-count').textContent(),'50');
@@ -32,5 +44,9 @@ async function launch(){
  // A remote view has no bridge, Node or local filesystem access; native IPC rejects non-shell senders.
  const prefs=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().map(w=>w.webContents.getLastWebPreferences()).map(p=>({node:p.nodeIntegration,sandbox:p.sandbox,isolation:p.contextIsolation})));
  assert.ok(prefs.every(p=>!p.node&&p.sandbox&&p.isolation));assert.deepEqual(errors,[]);
- await app.close();app=null;console.log('PASS: 快照、严格上下限、跨页勾选、重启恢复、是否打开、搜索和窗口隔离。');
+ // Test standalone HTML in an isolated test window, with no Node bridge.
+ const offlinePagePromise=app.waitForEvent('window');await app.evaluate(async({BrowserWindow},file)=>{const win=new BrowserWindow({show:false,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});await win.loadFile(file)},offline);
+ const exported=await offlinePagePromise;await exported.waitForFunction(()=>document.getElementById('total')?.textContent==='4,278');
+ await exported.locator('#fans').fill('');await exported.locator('#works-limit').fill('');await exported.locator('#days-max').fill('10');assert.equal(await exported.locator('#match-count').textContent(),'1');assert.equal(await exported.locator('#rows .video-times div').count(),3);
+ await app.close();app=null;console.log('PASS: 快照、严格上下限、时间筛选排序及三行展示、跨页勾选、重启恢复、是否打开、搜索、窗口隔离和离线 HTML。');
 })().catch(async e=>{console.error(e);if(app)await app.close().catch(()=>{});process.exitCode=1});

@@ -1,6 +1,6 @@
 import {BrowserWindow,WebContentsView,session,WebContents} from 'electron';
 import path from 'node:path';
-import {Transport,SELF,FOLLOWING,PROFILE,baseParams,pageRequest,checkPageResult,parseOwner,parseFollowing,CollectError} from './transport';
+import {Transport,SELF,FOLLOWING,PROFILE,POSTS,baseParams,pageRequest,checkPageResult,parseOwner,parseFollowing,parseVideos,CollectError} from './transport';
 import {User} from './domain';
 const delay=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 export const appURL='app://local/';
@@ -46,6 +46,7 @@ export class DouyinTransport implements Transport {
   async owner(){if(await this.challenge())throw new CollectError('CAPTCHA','需要先完成抖音验证');return parseOwner(await this.request(SELF));}
   async following(owner:User,offset:number,time:number){return parseFollowing(await this.request(FOLLOWING,{user_id:owner.uid,sec_user_id:owner.sec_uid,offset:String(offset),max_time:String(time),count:'20'}));}
   async profile(user:User){const data=await this.request(PROFILE,{sec_user_id:user.sec_uid});if(!data.user||String(data.user.uid)!==user.uid)throw new CollectError('SCHEMA','详情接口身份不匹配');return data.user;}
+  async videos(user:User,cursor:number){return parseVideos(await this.request(POSTS,{sec_user_id:user.sec_uid,max_cursor:String(cursor),count:'20'}),user);}
   async challenge(target?:User,navigate=false){
     const wc=await this.ensure();const visible=async()=>{
       try{

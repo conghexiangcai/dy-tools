@@ -1,4 +1,4 @@
-window.filterDefaults={"fans":"10000","fans-min":"","works-limit":"20","works-min":"","logic":"or","mutual":"","decision":"match","works-state":"","opened-state":"","sort":"difference_desc","following-greater":false,"search":"","batch-size":"5"};
+window.filterDefaults={"fans":"10000","fans-min":"","works-limit":"20","works-min":"","days-min":"","days-max":"","logic":"or","mutual":"","decision":"match","works-state":"","opened-state":"","sort":"difference_desc","following-greater":false,"search":"","batch-size":"5"};
 window.classifyRow=function classify(row, settings) {
     const values = [];
     for (const [id, key, op, label] of [['fans', 'follower_count', 'lt', '粉丝'], ['fans-min', 'follower_count', 'gt', '粉丝'], ['works-limit', 'works_count', 'lt', '作品'], ['works-min', 'works_count', 'gt', '作品']]) {
@@ -16,4 +16,27 @@ window.classifyRow=function classify(row, settings) {
     const vals = values.map(x => x.value);
     const state = !vals.length ? 'match' : settings.logic === 'and' ? (vals.includes(false) ? 'excluded' : vals.includes(null) ? 'pending' : 'match') : (vals.includes(true) ? 'match' : vals.includes(null) ? 'pending' : 'excluded');
     return { state, matched: values.filter(x => x.value === true).map(x => x.label) };
+};
+window.latestAge=function latestAge(row, now = Date.now()) {
+    const dates = row.recent_video_times;
+    if (!Array.isArray(dates) || !dates.length)
+        return null;
+    const t = Date.parse(dates[0]);
+    if (!Number.isFinite(t) || t > now + 60000)
+        return null;
+    return Math.max(0, Math.floor((now + 28800000) / 86400000) - Math.floor((t + 28800000) / 86400000));
+};
+window.matchesAge=function matchesAge(age, settings) {
+    let match = true;
+    for (const [key, op] of [['days-min', 'gt'], ['days-max', 'lt']]) {
+        const raw = String(settings[key] ?? '').trim();
+        if (!raw)
+            continue;
+        const n = Number(raw);
+        if (!Number.isSafeInteger(n) || n < 0)
+            throw Error('发布时间天数请输入非负整数');
+        if (age === null || (op === 'gt' ? age <= n : age >= n))
+            match = false;
+    }
+    return match;
 };

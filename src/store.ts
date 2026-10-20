@@ -17,6 +17,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS review(owner_uid TEXT NOT NULL,uid TEXT NOT NULL,selected INTEGER DEFAULT 0,opened INTEGER DEFAULT 0,PRIMARY KEY(owner_uid,uid));
       CREATE TABLE IF NOT EXISTS review_meta(owner_uid TEXT PRIMARY KEY,settings TEXT DEFAULT '{}',last_batch TEXT DEFAULT '[]');
       CREATE TABLE IF NOT EXISTS history(owner_uid TEXT NOT NULL,uid TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(owner_uid,uid));`);
+    if(!(this.db.prepare('PRAGMA table_info(profiles)').all() as any[]).some(c=>c.name==='videos_done'))this.db.exec('ALTER TABLE profiles ADD COLUMN videos_done INTEGER NOT NULL DEFAULT 0');
     this.db.prepare("UPDATE runs SET status='paused',message='上次任务中断，点击继续恢复' WHERE status IN ('running','cooldown')").run();
   }
   transaction<T>(fn:()=>T):T{this.db.exec('BEGIN IMMEDIATE');try{const r=fn();this.db.exec('COMMIT');return r;}catch(e){this.db.exec('ROLLBACK');throw e;}}
@@ -29,7 +30,7 @@ export class Store {
     this.transaction(()=>{
       this.activate(owner,'已导入的原账号');const id='seed-v3';const at=payload.summary.profiles_updated_at;
       this.db.prepare("INSERT INTO runs(id,owner_uid,phase,status,started_at,updated_at,snapshot_at,total_hint) VALUES(?,?,'profiles','completed',?,?,?,?)").run(id,owner,at,at,payload.summary.following_snapshot_at,payload.rows.length);
-      const member=this.db.prepare('INSERT INTO members VALUES(?,?,?)'),profile=this.db.prepare('INSERT INTO profiles VALUES(?,?,?,1)');
+      const member=this.db.prepare('INSERT INTO members VALUES(?,?,?)'),profile=this.db.prepare('INSERT INTO profiles(run_id,uid,data,done) VALUES(?,?,?,1)');
       for(const r of payload.rows){member.run(id,r.uid,JSON.stringify({...r,unique_id:r.account}));profile.run(id,r.uid,JSON.stringify(r));}
       this.db.prepare('UPDATE accounts SET active_run=? WHERE uid=?').run(id,owner);
       if(existsSync(auditPath)){const audit=JSON.parse(readFileSync(auditPath,'utf8'));const put=this.db.prepare('INSERT OR REPLACE INTO history VALUES(?,?,?)');for(const r of audit.results||[])if(uidValid(r.uid))put.run(owner,r.uid,JSON.stringify(r));}
@@ -49,8 +50,10 @@ export class Store {
     this.transaction(()=>{const put=this.db.prepare('INSERT OR IGNORE INTO members VALUES(?,?,?)');for(const u of users)put.run(id,u.uid,JSON.stringify(u));this.update(id,next);if(last){const r=this.run(id)!;this.update(id,{phase:'profiles',snapshot_at:new Date().toISOString()});this.db.prepare('UPDATE accounts SET active_run=? WHERE uid=?').run(id,r.owner_uid);}});
   }
   nextUser(id:string):User|null{const r=this.db.prepare('SELECT m.data FROM members m LEFT JOIN profiles p ON p.run_id=m.run_id AND p.uid=m.uid WHERE m.run_id=? AND COALESCE(p.done,0)=0 ORDER BY m.rowid LIMIT 1').get(id) as any;return r?JSON.parse(r.data):null;}
-  saveRow(id:string,row:Row,done=true){this.transaction(()=>{this.db.prepare('INSERT INTO profiles VALUES(?,?,?,?) ON CONFLICT(run_id,uid) DO UPDATE SET data=excluded.data,done=excluded.done').run(id,row.uid,JSON.stringify(row),done?1:0);this.update(id,{error_uid:null});});}
-  progress(id:string){return {total:Number((this.db.prepare('SELECT count(*) n FROM members WHERE run_id=?').get(id) as any).n),completed:Number((this.db.prepare('SELECT count(*) n FROM profiles WHERE run_id=? AND done=1').get(id) as any).n)};}
+  saveRow(id:string,row:Row,done=true){this.transaction(()=>{this.db.prepare('INSERT INTO profiles(run_id,uid,data,done) VALUES(?,?,?,?) ON CONFLICT(run_id,uid) DO UPDATE SET data=excluded.data,done=excluded.done').run(id,row.uid,JSON.stringify(row),done?1:0);this.update(id,{error_uid:null});});}
+  nextVideos(id:string):{user:User;row:Row}|null{const v=this.db.prepare('SELECT m.data member,p.data profile FROM members m JOIN profiles p ON m.run_id=p.run_id AND m.uid=p.uid WHERE m.run_id=? AND p.done=1 AND p.videos_done=0 ORDER BY m.rowid LIMIT 1').get(id) as any;return v?{user:JSON.parse(v.member),row:JSON.parse(v.profile)}:null;}
+  saveVideos(id:string,uid:string,times:string[],status:string){this.transaction(()=>{const p=this.db.prepare('SELECT data FROM profiles WHERE run_id=? AND uid=?').get(id,uid) as any;if(!p)throw Error('账号详情尚未保存');const row={...JSON.parse(p.data),recent_video_times:times,recent_videos_status:status,videos_checked_at:new Date().toISOString()};this.db.prepare('UPDATE profiles SET data=?,videos_done=1 WHERE run_id=? AND uid=?').run(JSON.stringify(row),id,uid);this.update(id,{error_uid:null});});}
+  progress(id:string){return {total:Number((this.db.prepare('SELECT count(*) n FROM members WHERE run_id=?').get(id) as any).n),completed:Number((this.db.prepare('SELECT count(*) n FROM profiles WHERE run_id=? AND done=1').get(id) as any).n),videos:Number((this.db.prepare('SELECT count(*) n FROM profiles WHERE run_id=? AND videos_done=1').get(id) as any).n)};}
   snapshot(owner=this.owner()){
     const a=this.db.prepare('SELECT * FROM accounts WHERE uid=?').get(owner) as any;
     const run=a?.active_run?this.run(a.active_run):null;
