@@ -1,7 +1,7 @@
 {
   "name": "douyin-following-review",
   "productName": "抖音关注清单",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "description": "本地抖音关注清单与手动主页查看工具",
   "main": "dist/main.js",
