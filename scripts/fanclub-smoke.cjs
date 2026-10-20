@@ -14,6 +14,8 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright');
  await p.locator('[data-select="8"]').uncheck();await p.waitForFunction(()=>document.getElementById('add').disabled===false);await p.locator('#start').click();await p.waitForFunction(()=>document.getElementById('status').textContent.includes('2 / 2'));
  const usage=await app.evaluate(()=>testFans.store.getReview());assert.deepEqual(usage.selected,['7']);assert.deepEqual(usage.opened,['8']);assert.equal(usage.settings.fans,'99');
  const denied=await p.evaluate(()=>desktop.call('review',{owner_uid:'100',delta:{clearSelected:true}}).then(()=>false,()=>true));assert.equal(denied,true);
+ await p.locator('#target-input').fill('2');await app.evaluate(()=>testFans.ui.notify());await p.waitForTimeout(100);assert.equal(await p.locator('#target').isHidden(),true);assert.equal(await p.locator('#start').isDisabled(),true);
+ await p.locator('#resolve').click();await p.waitForSelector('#target:not([hidden])');assert.ok((await p.locator('#target').textContent()).includes('test_2'));
  await app.evaluate(()=>{testFans.store.activate('200');testFans.ui.notify()});await p.waitForFunction(()=>document.getElementById('anchor-count').textContent==='0');assert.equal(await p.locator('#result-panel').isHidden(),true);
  assert.deepEqual(errors,[]);await app.close();app=null;console.log('PASS: empty catalog, dedupe, remarks, target preview, selected scope, badge/range/unknown display, result search, account isolation, preserved review, and restricted IPC. Synthetic data only.');
 })().catch(async e=>{console.error(e);if(app)await app.close().catch(()=>{});process.exitCode=1});

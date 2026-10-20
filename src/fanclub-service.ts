@@ -6,15 +6,15 @@ export interface FanConnection {resolve(raw:string):Promise<{user:FanUser;data:a
 export interface FanWire {connect(owner:string):Promise<FanConnection>;challenge(target?:FanUser,navigate?:boolean):Promise<boolean>;show():void}
 const sleep=(ms:number)=>new Promise<void>(r=>setTimeout(r,ms));
 export class FanService {
-  busy=false;countdown=0;private stopped=false;private resolved:{owner:string;user:FanUser}|null=null;private previewRevision=0;
+  busy=false;countdown=0;private stopped=false;private resolved:{owner:string;user:FanUser;input:string}|null=null;private previewRevision=0;
   private pending:{owner:string;raw:string;anchor:boolean;status:'waiting_login'|'waiting_verification';message:string}|null=null;
   constructor(public store:FanStore,public wire:FanWire,private owner:()=>string,private changed:()=>void,private delay=sleep){}
-  state(){const owner=this.owner();return {owner,anchors:this.store.anchors(owner),run:this.store.latest(owner),target:this.resolved?.owner===owner?this.resolved.user:null,pending:this.pending?.owner===owner?{status:this.pending.status,message:this.pending.message}:null,busy:this.busy,countdown:this.countdown}}
+  state(){const owner=this.owner();return {owner,anchors:this.store.anchors(owner),run:this.store.latest(owner),target:this.resolved?.owner===owner?this.resolved.user:null,targetInput:this.resolved?.owner===owner?this.resolved.input:null,pending:this.pending?.owner===owner?{status:this.pending.status,message:this.pending.message}:null,busy:this.busy,countdown:this.countdown}}
   private requireOwner(){const o=this.owner();if(!o)throw Error('请先登录抖音并连接账号');return o}
   private check(owner:string){if(this.owner()!==owner)throw new CollectError('ACCOUNT_CHANGED','登录账号已切换，旧查询结果不再写入');if(this.stopped)throw new CollectError('PAUSED','已暂停，可继续查询')}
   async resolve(raw:string,anchor=false){
     if(this.busy)throw Error('请先暂停当前查询');fanInput(raw);const owner=this.requireOwner(),revision=++this.previewRevision;this.pending=null;if(!anchor)this.resolved=null;this.stopped=false;this.busy=true;this.changed();
-    try{const cx=await this.request(()=>this.wire.connect(owner),owner),result=await this.request(()=>cx.resolve(raw),owner);this.check(owner);await cx.assert();this.check(owner);if(revision!==this.previewRevision)throw Error('账号解析已被新的操作替代');if(anchor)this.store.add(owner,result.user);else this.resolved={owner,user:result.user};this.pending=null;return result.user}
+    try{const cx=await this.request(()=>this.wire.connect(owner),owner),result=await this.request(()=>cx.resolve(raw),owner);this.check(owner);await cx.assert();this.check(owner);if(revision!==this.previewRevision)throw Error('账号解析已被新的操作替代');if(anchor)this.store.add(owner,result.user);else this.resolved={owner,user:result.user,input:raw.trim()};this.pending=null;return result.user}
     catch(e:any){if(['CAPTCHA','LOGIN'].includes(e.code)){this.pending={owner,raw,anchor,status:e.code==='CAPTCHA'?'waiting_verification':'waiting_login',message:e.message};this.wire.show()}throw e}
     finally{this.busy=false;this.changed()}
   }
