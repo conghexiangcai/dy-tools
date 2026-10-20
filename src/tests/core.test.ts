@@ -91,6 +91,26 @@ test('最新三条按发布时间排序，处理置顶及重复；缺失/错作�
  assert.throws(()=>parseVideos(data,user('2')),/身份/);
  assert.equal(parseVideos({...data,aweme_list:[{aweme_id:'1'}]},user('1')).valid,false);
 });
+test('实际空作品响应省略分页字段时记未知，仍拒绝其他异常结构',()=>{
+ const observed={status_code:0,aweme_list:null,time_list:null,log_pb:{}};
+ assert.deepEqual(parseVideos(observed,user('1')),{videos:[],more:false,cursor:0,valid:false});
+ assert.throws(()=>parseVideos({aweme_list:[]},user('1')),/结构/);
+ assert.throws(()=>parseVideos({aweme_list:{},has_more:0},user('1')),/结构/);
+ assert.throws(()=>parseVideos(null,user('1')),/结构/);
+ assert.throws(()=>parseVideos({aweme_list:null,has_more:1},user('1')),/游标/);
+});
+test('缺少分页的空作品账号不会阻塞队列或把未知作品数变成零',async t=>{
+ const {store:s}=fixture(t),calls:string[]=[];s.reviewDelta('100',{opened:['1'],select:{ids:['2'],value:true}});
+ const c=new Collector(s,fake({profile:async u=>profile(u,u.uid==='1'?null:20),videos:async u=>{calls.push(u.uid);return u.uid==='1'?parseVideos({status_code:0,aweme_list:null},u):{videos:[{id:'50',time:1780000000,pinned:false}],more:false,cursor:0,valid:true}}}),()=>{},async()=>{});
+ await c.start();await idle(c);assert.equal(s.latest()!.status,'completed');assert.deepEqual(calls,['1','2']);assert.equal(s.progress(s.latest()!.id).videos,2);
+ const rows=s.snapshot().rows;assert.equal(rows[0].works_count,null);assert.equal(rows[0].recent_videos_status,'unknown');assert.deepEqual(rows[0].recent_video_times,[]);assert.equal(rows[1].recent_video_times?.length,1);assert.deepEqual(s.getReview().opened,['1']);assert.deepEqual(s.getReview().selected,['2']);
+});
+test('结构错误优先辨别实际验证码，真实结构变化依然暂停',async t=>{
+ const {store:s}=fixture(t);let captcha=true;
+ const c=new Collector(s,fake({videos:async()=>{throw new CollectError('SCHEMA','作品列表接口结构发生变化')},challenge:async()=>captcha}),()=>{},async()=>{});
+ await c.start();await idle(c);assert.equal(s.latest()!.status,'waiting_verification');assert.equal(s.progress(s.latest()!.id).videos,0);
+ captcha=false;await c.resume(true);await idle(c);assert.equal(s.latest()!.status,'error');assert.match(s.latest()!.message,/结构/);assert.equal(s.progress(s.latest()!.id).videos,0);
+});
 test('最新距今天数、时区跨日、严格上下限、未知和未来日期',()=>{
  const now=Date.parse('2026-10-01T00:01:00+08:00');
  assert.equal(latestAge({recent_video_times:['2026-09-30T23:59:00+08:00']},now),1);

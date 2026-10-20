@@ -29,6 +29,10 @@ export async function pageRequest(path:string,params:Record<string,string>):Prom
   } catch(e:any){return {error:e.message==='TIMEOUT'?'TIMEOUT':'NETWORK'}} finally {clearTimeout(timer);}
 }
 export function parseVideos(data:any,user:User):VideoPage{
+  if(!data||typeof data!=='object')throw new CollectError('SCHEMA','作品列表接口结构发生变化');
+  // Observed account-level unavailable response: status_code=0, aweme_list=null,
+  // with both pagination fields omitted. This is unknown, not zero publications.
+  if(data.aweme_list===null&&data.has_more===undefined&&data.max_cursor===undefined)return {videos:[],more:false,cursor:0,valid:false};
   if(![0,1,false,true].includes(data.has_more)||!(Array.isArray(data.aweme_list)||data.aweme_list===null))throw new CollectError('SCHEMA','作品列表接口结构发生变化');
   let valid=true;const videos:VideoPage['videos']=[];
   for(const v of data.aweme_list||[]){

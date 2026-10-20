@@ -22,6 +22,15 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
      if(!remote)throw Error('请先打开软件内的抖音窗口');
      result=await remote.evaluate(async()=>{const u=new URL('/aweme/v1/web/aweme/post/',location.origin);u.search=new URLSearchParams({device_platform:'webapp',aid:'6383',channel:'channel_pc_web',version_code:'170400',version_name:'17.4.0',update_version_code:'170400',pc_client_type:'1',platform:'PC',sec_user_id:'MS4wLjABAAAA_SYNTHETIC_ARCHIVE_USER',max_cursor:'0',count:'20'});const r=await fetch(u,{credentials:'include'});const d=await r.json();return {status:d.status_code,has_more:d.has_more,max_cursor:d.max_cursor,videos:d.aweme_list?.map(v=>({id:v.aweme_id,created:v.create_time,pinned:v.is_top,author:v.author?.uid})),keys:Object.keys(d)}});
     }
+    else if(req.method==='diagnose-videos'){
+     const remote=app.windows().find(p=>p.url().startsWith('https://www.douyin.com'));if(!remote)throw Error('抖音窗口未打开');
+     const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync(path.join(process.env.APPDATA,'DouyinFollowingReview/review.sqlite'),{readOnly:true});const run=db.prepare('SELECT * FROM runs ORDER BY started_at DESC LIMIT 1').get();const user=JSON.parse(db.prepare('SELECT data FROM members WHERE run_id=? AND uid=?').get(run.id,run.error_uid).data);db.close();
+     result=await remote.evaluate(async(user)=>{
+      const common={device_platform:'webapp',aid:'6383',channel:'channel_pc_web',version_code:'170400',version_name:'17.4.0',update_version_code:'170400',pc_client_type:'1',platform:'PC',sec_user_id:user.sec_uid};
+      const url=new URL('/aweme/v1/web/aweme/post/',location.origin);url.search=new URLSearchParams({...common,max_cursor:'0',count:'20'});const response=await fetch(url,{credentials:'include'});const d=await response.json();
+      return {uid:user.uid,http:response.status,keys:Object.keys(d),status_code:d.status_code,status_msg:d.status_msg,has_more:d.has_more,max_cursor:d.max_cursor,list_kind:d.aweme_list===null?'null':typeof d.aweme_list,list_count:Array.isArray(d.aweme_list)?d.aweme_list.length:null};
+     },user);
+    }
     else if(req.method==='ui'){result={text:await dashboard.locator('body').innerText()};await dashboard.screenshot({path:path.join(out,'playwright','live.png'),fullPage:true})}
     else if(req.method==='window'){result=await app.evaluate(({webContents})=>webContents.getAllWebContents().map(w=>({url:w.getURL(),title:w.getTitle()})))}
     else if(req.method==='remote'){result=await app.evaluate(async({webContents})=>{const w=webContents.getAllWebContents().find(w=>w.getURL().startsWith('https://www.douyin.com'));return w?{text:(await w.executeJavaScript("document.body?.innerText||''")).slice(0,14000)}:{error:'抖音页未打开'}})}

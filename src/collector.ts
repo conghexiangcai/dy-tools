@@ -30,8 +30,9 @@ export class Collector {
   private async request<T>(fn:()=>Promise<T>,target?:User):Promise<T>{
     for(let attempt=0;;attempt++){
       this.checkPause();try{const started=Date.now();const result=await fn();this.requestDurations.push(Date.now()-started+1000);if(this.requestDurations.length>30)this.requestDurations.shift();return result}catch(e:any){
-        this.checkPause();if(e.code==='LOGIN'||e.code==='ACCOUNT_CHANGED'||e.code==='SCHEMA')throw e;
+        this.checkPause();if(e.code==='LOGIN'||e.code==='ACCOUNT_CHANGED')throw e;
         if(await this.transport.challenge(target,attempt===0))throw new CollectError('CAPTCHA','需要手动完成验证码');
+        if(e.code==='SCHEMA')throw e;
         if(!['NETWORK','TIMEOUT','HTTP_500','HTTP_502','HTTP_503','HTTP_504'].includes(e.code)||attempt>=2)throw e;
         await this.delay(attempt===0?3000:10000);
       }
