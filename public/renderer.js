@@ -116,3 +116,7 @@ if($('ignore-selected'))$('ignore-selected').onclick=()=>ignoreAccounts([...sele
 async function prepareUnfollow(scope){error('');try{if(scope==='filtered'&&!$('filter-error').hidden)throw Error('请先修正筛选条件');await saveChain;const r=await desktop.call('toolsPreview',{owner,scope,group:$('group-filter').value,settings:settings()});await desktop.call('navigate',{page:'tasks',run:r.id})}catch(e){error(e.message)}}
 if($('unfollow-filtered'))$('unfollow-filtered').onclick=()=>prepareUnfollow('filtered');
 if($('unfollow-group'))$('unfollow-group').onclick=()=>prepareUnfollow('group');
+
+async function stageGroups(scope){error('');try{await saveChain;await desktop.call('orgStage',{owner,scope,settings:settings()});await desktop.call('navigate',{page:'groups'})}catch(e){error(e.message)}}
+if($('group-add-selected'))$('group-add-selected').onclick=()=>stageGroups('selected');
+if($('group-add-filtered'))$('group-add-filtered').onclick=()=>stageGroups('filtered');

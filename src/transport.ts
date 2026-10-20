@@ -22,10 +22,10 @@ export async function pageRequest(path:string,params:Record<string,string>):Prom
     const url=new URL(path,location.origin);url.search=new URLSearchParams(params).toString();
     const res=await Promise.race([fetch(url.href,{credentials:'include',cache:'no-store',signal:controller.signal}),deadline]);
     if(!res.ok)return {error:res.status===401?'LOGIN':'HTTP_'+res.status};
-    const text=await Promise.race([res.text(),deadline]);let data:any;try{data=JSON.parse(text)}catch{return {error:'EMPTY'}}
+    const text=await Promise.race([res.text(),deadline]);let data:any;try{data=JSON.parse(text,((key:string,value:any,context?:{source?:string})=>typeof value==='number'&&!Number.isSafeInteger(value)&&context?.source?context.source:value) as any)}catch{return {error:'EMPTY'}}
     if(data.status_code!==0)return {error:'API_'+String(data.status_code)};
     const pick=(u:any)=>u&&Object.fromEntries(['uid','sec_uid','nickname','unique_id','short_id','follower_count','following_count','aweme_count','follow_status','secret','avatar_thumb'].filter(k=>u[k]!==undefined).map(k=>[k,u[k]]));
-    return {aweme_detail:data.aweme_detail?{aweme_id:data.aweme_detail.aweme_id,author:pick(data.aweme_detail.author)}:undefined,user:pick(data.user),user_list:Array.isArray(data.user_list)?data.user_list.map((x:any)=>({user_info:pick(x.user_info)})):undefined,cursor:data.cursor,search_id:typeof data.log_pb?.impr_id==='string'?data.log_pb.impr_id:undefined,followings:Array.isArray(data.followings)?data.followings.map(pick):undefined,has_more:data.has_more,min_time:data.min_time,max_cursor:data.max_cursor,aweme_list:Array.isArray(data.aweme_list)?data.aweme_list.map((v:any)=>({aweme_id:v.aweme_id,create_time:v.create_time,is_top:v.is_top,author_uid:v.author?.uid})):data.aweme_list};
+    return {aweme_detail:data.aweme_detail?{aweme_id:data.aweme_detail.aweme_id,author:pick(data.aweme_detail.author)}:undefined,user:pick(data.user),user_list:Array.isArray(data.user_list)?data.user_list.map((x:any)=>({user_info:pick(x.user_info)})):undefined,cursor:data.cursor,search_id:typeof data.log_pb?.impr_id==='string'?data.log_pb.impr_id:undefined,followers:Array.isArray(data.followers)?data.followers.map(pick):undefined,followings:Array.isArray(data.followings)?data.followings.map(pick):undefined,has_more:data.has_more,min_time:data.min_time,max_cursor:data.max_cursor,aweme_list:Array.isArray(data.aweme_list)?data.aweme_list.map((v:any)=>({aweme_id:v.aweme_id,create_time:v.create_time,is_top:v.is_top,author_uid:v.author?.uid})):data.aweme_list};
   } catch(e:any){return {error:e.message==='TIMEOUT'?'TIMEOUT':'NETWORK'}} finally {clearTimeout(timer);}
 }
 export function parseVideos(data:any,user:User):VideoPage{
@@ -54,4 +54,8 @@ export function parseFollowing(data:any){
   let users:User[];try{users=data.followings.map(cleanUser)}catch{throw new CollectError('SCHEMA','关注列表包含无效账号身份')}
   const more=!!data.has_more;if(more&&(count(data.min_time)===null||!users.length))throw new CollectError('SCHEMA','关注分页游标无效');
   return {users,more,min_time:count(data.min_time)??0};
+}
+export function parseFollowers(data:any){
+  if(!Array.isArray(data?.followers))throw new CollectError('SCHEMA','粉丝列表接口尚未验证通过或返回结构变化；不会使用关注列表或粉丝总数代替');
+  return parseFollowing({...data,followings:data.followers});
 }

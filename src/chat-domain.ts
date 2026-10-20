@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 export type ChatMember={uid:string;sec_uid:string;nickname:string;alias:string};
 export type ChatGroup={id:string;name:string;kind:'普通群'|'粉丝群'|'未知';expected:number|null;short_id?:string;conversation_type?:number;inbox_type?:number};
-export type ChatSnapshot={id:string;group:ChatGroup;source:string;origin:'scan'|'import';collected_at:string|null;imported_at?:string;complete:boolean;reason:string;members:ChatMember[]};
+export type ChatSnapshot={id:string;group:ChatGroup;source:string;origin:'scan'|'import';collected_at:string|null;started_at?:string;imported_at?:string;complete:boolean;reason:string;members:ChatMember[]};
 export type PendingRow={sheet:string;row:number;reason:string;values:string[]};
 export type ChatBundle={format:'douyin-chat-members';version:1;exported_at:string;snapshots:ChatSnapshot[];unresolved:PendingRow[]};
 export type MatchRow=ChatMember&{groups:{id:string;name:string;snapshot_id:string;collected_at:string|null;complete:boolean;side?:string}[];category?:string};

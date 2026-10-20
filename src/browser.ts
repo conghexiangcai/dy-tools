@@ -1,6 +1,6 @@
 import {BrowserWindow,WebContentsView,session,WebContents} from 'electron';
 import path from 'node:path';
-import {Transport,SELF,FOLLOWING,PROFILE,POSTS,baseParams,pageRequest,checkPageResult,parseOwner,parseFollowing,parseVideos,CollectError} from './transport';
+import {Transport,SELF,FOLLOWING,PROFILE,POSTS,baseParams,pageRequest,checkPageResult,parseOwner,parseFollowing,parseFollowers,parseVideos,CollectError} from './transport';
 import {User,cleanUser} from './domain';
 import {parseAccountSearch} from './account-search';
 const delay=(ms:number)=>new Promise(r=>setTimeout(r,ms));
@@ -57,6 +57,8 @@ export class DouyinTransport implements Transport {
   }
   async owner(){if(await this.challenge())throw new CollectError('CAPTCHA','需要先完成抖音验证');return parseOwner(await this.request(SELF));}
   async following(owner:User,offset:number,time:number){return parseFollowing(await this.request(FOLLOWING,{user_id:owner.uid,sec_user_id:owner.sec_uid,offset:String(offset),max_time:String(time),count:'20'}));}
+  // Read-only candidate: accepted only after schema, identity and full-count checks.
+  async followers(owner:User,offset:number,time:number){return parseFollowers(await this.request('/aweme/v1/web/user/follower/list/',{user_id:owner.uid,sec_user_id:owner.sec_uid,offset:String(offset),max_time:String(time),count:'20'}));}
   async profile(user:User){const data=await this.request(PROFILE,{sec_user_id:user.sec_uid});if(!data.user||String(data.user.uid)!==user.uid)throw new CollectError('SCHEMA','详情接口身份不匹配');return data.user;}
   async resolveSec(sec:string){const data=await this.request(PROFILE,{sec_user_id:sec});let u:User;try{u=cleanUser(data.user)}catch{throw new CollectError('SCHEMA','主页接口未返回完整账号身份')}if(u.sec_uid!==sec)throw new CollectError('IDENTITY','主页账号身份与输入不符');return u}
   async workAuthor(id:string){const d=await this.request('/aweme/v1/web/aweme/detail/',{aweme_id:id});if(d.aweme_detail?.aweme_id!==id)throw new CollectError('IDENTITY','作品失效或返回了其他作品，无法确认作者');let u:User;try{u=cleanUser(d.aweme_detail.author)}catch{throw new CollectError('SCHEMA','作品未返回可靠作者身份')}const p=await this.resolveSec(u.sec_uid);if(p.uid!==u.uid)throw new CollectError('IDENTITY','作品作者与主页身份不一致');return p}

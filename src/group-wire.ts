@@ -9,7 +9,7 @@ export class DouyinGroupWire implements GroupWire {
   challenge(target?:User,navigate=false){return this.transport.challenge(target,navigate)}
   show(){this.transport.show()}
   async connect(owner:string):Promise<GroupConnection>{
-    if((await this.transport.owner()).uid!==owner)throw new CollectError('ACCOUNT_CHANGED','当前登录账号与名单不符，请连接正确账号');
+    const self=await this.transport.owner();if(self.uid!==owner)throw new CollectError('ACCOUNT_CHANGED','当前登录账号与名单不符，请连接正确账号');
     // Domain is verified through the APK Retrofit factory. Cookie values stay in memory only.
     const cookies=()=>this.session.cookies.get({url:'https://www.douyin.com'});
     const initial=await cookies(),auth=initial.map(c=>c.name+'='+c.value).join('; ');
@@ -29,6 +29,6 @@ export class DouyinGroupWire implements GroupWire {
       if(d.status_code!==0){if(d.verify_type||d.verify_center_decision_conf||d.verify_detail)throw new CollectError('CAPTCHA','分组服务需要人工验证');throw new CollectError('GROUP_API','分组接口未接受当前请求（'+String(d.status_code)+'）：'+String(d.status_msg||'连接受限').slice(0,150))}
       return d;
     });
-    return {read:async(path,params)=>{for(let attempt=0;;attempt++){try{return await request(path,params)}catch(e:any){if(e.code!=='NETWORK'||attempt>=2)throw e;if(await this.challenge())throw new CollectError('CAPTCHA','请完成抖音验证');await new Promise(r=>setTimeout(r,1000))}}},write:async(sec,add,del,guard)=>{await request(GROUP_SETTINGS,{sec_user_id:sec,add_group_ids:add.join(','),del_group_ids:del.join(',')},true,guard)}};
+    return {selfSec:self.sec_uid,read:async(path,params)=>{for(let attempt=0;;attempt++){try{return await request(path,params)}catch(e:any){if(e.code!=='NETWORK'||attempt>=2)throw e;if(await this.challenge())throw new CollectError('CAPTCHA','请完成抖音验证');await new Promise(r=>setTimeout(r,1000))}}},write:async(sec,add,del,guard)=>{await request(GROUP_SETTINGS,{sec_user_id:sec,add_group_ids:add.join(','),del_group_ids:del.join(',')},true,guard)}};
   }
 }
