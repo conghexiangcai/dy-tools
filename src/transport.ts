@@ -20,12 +20,12 @@ export async function pageRequest(path:string,params:Record<string,string>):Prom
   const deadline=new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('TIMEOUT'));},20000)});
   try {
     const url=new URL(path,location.origin);url.search=new URLSearchParams(params).toString();
-    const res=await Promise.race([fetch(url.href,{credentials:'include',signal:controller.signal}),deadline]);
+    const res=await Promise.race([fetch(url.href,{credentials:'include',cache:'no-store',signal:controller.signal}),deadline]);
     if(!res.ok)return {error:res.status===401?'LOGIN':'HTTP_'+res.status};
     const text=await Promise.race([res.text(),deadline]);let data:any;try{data=JSON.parse(text)}catch{return {error:'EMPTY'}}
     if(data.status_code!==0)return {error:'API_'+String(data.status_code)};
-    const pick=(u:any)=>u&&Object.fromEntries(['uid','sec_uid','nickname','unique_id','short_id','follower_count','following_count','aweme_count','follow_status','secret'].filter(k=>u[k]!==undefined).map(k=>[k,u[k]]));
-    return {user:pick(data.user),followings:Array.isArray(data.followings)?data.followings.map(pick):undefined,has_more:data.has_more,min_time:data.min_time,max_cursor:data.max_cursor,aweme_list:Array.isArray(data.aweme_list)?data.aweme_list.map((v:any)=>({aweme_id:v.aweme_id,create_time:v.create_time,is_top:v.is_top,author_uid:v.author?.uid})):data.aweme_list};
+    const pick=(u:any)=>u&&Object.fromEntries(['uid','sec_uid','nickname','unique_id','short_id','follower_count','following_count','aweme_count','follow_status','secret','avatar_thumb'].filter(k=>u[k]!==undefined).map(k=>[k,u[k]]));
+    return {user:pick(data.user),user_list:Array.isArray(data.user_list)?data.user_list.map((x:any)=>({user_info:pick(x.user_info)})):undefined,cursor:data.cursor,search_id:typeof data.log_pb?.impr_id==='string'?data.log_pb.impr_id:undefined,followings:Array.isArray(data.followings)?data.followings.map(pick):undefined,has_more:data.has_more,min_time:data.min_time,max_cursor:data.max_cursor,aweme_list:Array.isArray(data.aweme_list)?data.aweme_list.map((v:any)=>({aweme_id:v.aweme_id,create_time:v.create_time,is_top:v.is_top,author_uid:v.author?.uid})):data.aweme_list};
   } catch(e:any){return {error:e.message==='TIMEOUT'?'TIMEOUT':'NETWORK'}} finally {clearTimeout(timer);}
 }
 export function parseVideos(data:any,user:User):VideoPage{

@@ -5,7 +5,7 @@ import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {Store} from './store';
 import {BrowserHost,DouyinTransport,appURL} from './browser';
 import {Collector} from './collector';
-import {cleanIds,User} from './domain';
+import {cleanIds,User,accountPrivacy} from './domain';
 import {exportText} from './export';
 import {GroupService} from './group-service';
 import {DouyinGroupWire} from './group-wire';
@@ -97,7 +97,8 @@ if(!app.requestSingleInstanceLock()){app.quit()}else{
     loginHost=new BrowserHost('collector',preload,send);reviewHost=new BrowserHost('review',preload,send);transport=new DouyinTransport(loginHost);collector=new Collector(store,transport,broadcast);
     groups=new GroupService(store,new DouyinGroupWire(session.fromPartition('persist:douyin-login'),transport),broadcast);
     groupUI=new GroupUI(reviewHost,store,groups,preload);loginHost.onContextChange=()=>groupUI.cancel();
-    fans=new FanService(new FanStore(store.db),new DouyinFanWire(session.fromPartition('persist:douyin-login'),transport),()=>store.owner(),()=>{fanUI?.notify();if(loginHost)send(loginHost)});
+    fans=new FanService(new FanStore(store.db),new DouyinFanWire(session.fromPartition('persist:douyin-login'),transport),()=>store.owner(),()=>{fanUI?.notify();if(loginHost)send(loginHost);if(reviewHost)send(reviewHost)});
+    reviewHost.profileMeta=sec=>{const row=store.profileTarget(sec);if(row)return {nickname:row.nickname,is_private:accountPrivacy(row)};const s=fans.state();return [s.target,s.run?.target,...s.anchors,...s.run?.anchors||[]].find(u=>u?.sec_uid===sec)||undefined};
     const stopCollector=async()=>{groupSyncQueued=false;if(groups.busy)throw Error('分组同步正在进行，请稍后开始查询');if(collector.busy){collector.pause();for(let i=0;i<300&&collector.busy;i++)await new Promise(r=>setTimeout(r,100));if(collector.busy)throw Error('正在保存采集断点，请稍后重试')}};
     fanUI=new FanUI(fans,preload,stopCollector,async()=>{await transport.ensure();transport.show()},async()=>{const owner=await transport.owner();store.activate(owner.uid,owner.nickname);broadcast()},async(uid,sec,name)=>{await reviewHost.add('https://www.douyin.com/user/'+sec,name,'fan-'+uid);reviewHost.show()});
     loginHost.onChange=()=>collector.pause();

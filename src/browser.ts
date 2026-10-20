@@ -2,11 +2,13 @@ import {BrowserWindow,WebContentsView,session,WebContents} from 'electron';
 import path from 'node:path';
 import {Transport,SELF,FOLLOWING,PROFILE,POSTS,baseParams,pageRequest,checkPageResult,parseOwner,parseFollowing,parseVideos,CollectError} from './transport';
 import {User,cleanUser} from './domain';
+import {parseAccountSearch} from './account-search';
 const delay=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 export const appURL='app://local/';
 export function allowedRemote(url:string){try{const u=new URL(url);return u.protocol==='https:'&&['douyin.com','iesdouyin.com','bytedance.com','snssdk.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false}}
 export class BrowserHost {
   window:BrowserWindow;tabs:{id:string;title:string;view:WebContentsView}[]=[];active='';onChange=()=>{};onContextChange=()=>{};revision=0;
+  profileMeta:(sec:string)=>{nickname:string;is_private?:boolean|null}|undefined=()=>undefined;
   contextChanged(){this.revision++;this.onContextChange()}
   constructor(public mode:'collector'|'review',preload:string,private notify:(host:BrowserHost)=>void){
     this.window=new BrowserWindow({width:1160,height:820,minWidth:700,minHeight:500,show:false,title:mode==='collector'?'抖音登录与验证':'手动查看主页',autoHideMenuBar:true,webPreferences:{preload,contextIsolation:true,nodeIntegration:false,sandbox:true}});
@@ -22,8 +24,9 @@ export class BrowserHost {
     const view=new WebContentsView({webPreferences:{partition:'persist:douyin-login',contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
     this.tabs.push({id,title,view});this.window.contentView.addChildView(view);this.select(id);
     const wc=view.webContents;wc.setWindowOpenHandler(({url})=>{if(allowedRemote(url))void this.add(url,'抖音页面',String(Date.now())).catch(()=>{});return {action:'deny'};});
-    wc.on('did-start-navigation',(_e,_url,_inPlace,isMain)=>{if(isMain)this.contextChanged()});
-    wc.on('did-navigate-in-page',(_e,_url,isMain)=>{if(isMain)this.contextChanged()});
+    wc.on('did-start-navigation',(_e,_url,_inPlace,isMain)=>{if(isMain){this.contextChanged();this.notify(this)}});
+    wc.on('did-navigate-in-page',(_e,_url,isMain)=>{if(isMain){this.contextChanged();this.notify(this)}});
+    wc.on('did-stop-loading',()=>this.notify(this));
     wc.on('will-navigate',(e,url)=>{if(!allowedRemote(url))e.preventDefault()});wc.on('will-redirect',(e,url)=>{if(!allowedRemote(url))e.preventDefault()});
     wc.on('will-frame-navigate',e=>{try{if(!['https:','about:','blob:','data:'].includes(new URL(e.url).protocol))e.preventDefault()}catch{e.preventDefault()}});
     wc.on('page-title-updated',(_,title)=>{const t=this.tabs.find(t=>t.id===id);if(t)t.title=title.slice(0,80);this.notify(this)});
@@ -36,9 +39,10 @@ export class BrowserHost {
   resize(){const [width,height]=this.window.getContentSize();for(const t of this.tabs){t.view.setVisible(t.id===this.active);t.view.setBounds({x:0,y:92,width,height:Math.max(0,height-92)});}}
   show(){this.window.show();this.window.focus();}
   destroy(){(this.window as any).__quitting=true;for(const t of this.tabs)t.view.webContents.close();this.window.destroy();}
-  state(){return {mode:this.mode,active:this.active,tabs:this.tabs.map(t=>({id:t.id,title:t.title}))};}
+  state(){let profile:ReturnType<BrowserHost['profileMeta']>;try{const url=new URL(this.current?.getURL()||'');if(url.origin==='https://www.douyin.com'){const sec=url.pathname.match(/^\/user\/([\w-]+)\/?$/)?.[1];if(sec&&!this.current?.isLoadingMainFrame())profile=this.profileMeta(sec)}}catch{}return {mode:this.mode,active:this.active,tabs:this.tabs.map(t=>({id:t.id,title:t.title})),profile};}
 }
 export class DouyinTransport implements Transport {
+  private searchAt=0;
   private queue:Promise<unknown>=Promise.resolve();
   exclusive<T>(fn:()=>Promise<T>):Promise<T>{const next=this.queue.then(fn,fn);this.queue=next.catch(()=>{});return next}
   constructor(public host:BrowserHost){}
@@ -55,6 +59,11 @@ export class DouyinTransport implements Transport {
   async following(owner:User,offset:number,time:number){return parseFollowing(await this.request(FOLLOWING,{user_id:owner.uid,sec_user_id:owner.sec_uid,offset:String(offset),max_time:String(time),count:'20'}));}
   async profile(user:User){const data=await this.request(PROFILE,{sec_user_id:user.sec_uid});if(!data.user||String(data.user.uid)!==user.uid)throw new CollectError('SCHEMA','详情接口身份不匹配');return data.user;}
   async resolveSec(sec:string){const data=await this.request(PROFILE,{sec_user_id:sec});let u:User;try{u=cleanUser(data.user)}catch{throw new CollectError('SCHEMA','主页接口未返回完整账号身份')}if(u.sec_uid!==sec)throw new CollectError('IDENTITY','主页账号身份与输入不符');return u}
+  async searchUsers(keyword:string,offset=0,searchId?:string){
+    if(offset&&(!searchId||!/^[A-Za-z0-9_-]{1,200}$/.test(searchId)))throw new CollectError('SCHEMA','搜索分页凭据缺失，请重新搜索');
+    await delay(Math.max(0,1000-(Date.now()-this.searchAt)));this.searchAt=Date.now();
+    return parseAccountSearch(await this.request('/aweme/v1/web/discover/search/',{search_channel:'aweme_user_web',keyword,search_source:'normal_search',query_correct_type:'1',is_filter_search:'0',from_group_id:'',disable_rs:'0',offset:String(offset),count:'10',need_filter_settings:offset?'0':'1',list_type:'single',pc_search_top_1_params:'{"enable_ai_search_top_1":1}',...(offset?{search_id:searchId!}:{}),pc_client_type:'2'}),offset);
+  }
   async videos(user:User,cursor:number){
     const page=parseVideos(await this.request(POSTS,{sec_user_id:user.sec_uid,max_cursor:String(cursor),count:'20'}),user);
     if(!page.valid&&!page.videos.length&&await this.challenge(user))throw new CollectError('CAPTCHA','需要手动完成验证码');

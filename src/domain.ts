@@ -1,4 +1,4 @@
-export type User = { uid: string; sec_uid: string; nickname?: string; unique_id?: string; short_id?: string; follower_count?: number; following_count?: number; follow_status?: number; secret?: number };
+export type User = { uid: string; sec_uid: string; nickname?: string; unique_id?: string; short_id?: string; follower_count?: number; following_count?: number; follow_status?: number; secret?: number; avatar?:string };
 export type Row = { uid: string; sec_uid: string; nickname: string; account: string; is_private?:boolean|null; follower_count: number|null; following_count: number|null; works_count: number|null; works_status: string; mutual_follow: boolean|null; follow_status: number|null; following_minus_followers: number|null; profile_url: string; checked_at: string|null; profile_status: string; following_state: string; recent_video_times?:string[]; recent_videos_status?:string; videos_checked_at?:string; [key:string]: unknown };
 export type Review = { selected: string[]; opened: string[]; lastBatch: string[]; settings: Record<string,string|boolean> };
 export type Status = 'running'|'paused'|'waiting_login'|'waiting_verification'|'cooldown'|'error'|'completed';
@@ -20,6 +20,7 @@ export function cleanUser(x:any):User {
   const u:User={uid:x.uid,sec_uid:x.sec_uid};
   for(const key of ['nickname','unique_id','short_id'] as const) if(typeof x[key]==='string')u[key]=x[key].slice(0,300);
   for(const key of ['follower_count','following_count','follow_status','secret'] as const) if(count(x[key])!==null)u[key]=x[key];
+  const avatar=x.avatar_thumb?.url_list?.find((s:any)=>typeof s==='string'&&s.startsWith('https://'));if(avatar)u.avatar=avatar.slice(0,2000);
   return u;
 }
 export function makeRow(u:User,p?:any,failed=false):Row {
