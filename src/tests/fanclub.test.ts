@@ -9,11 +9,11 @@ const anchor=(uid:string):FanAnchor=>({...target,uid,sec_uid:'MS4wLjABAAAA_ANCHO
 const data=(a='7',over:any={})=>({status_code:0,data:{id_str:target.uid,sec_uid:target.sec_uid,nickname:target.nickname,display_id:target.account,pay_grade:{level:17,this_grade_min_diamond:1700,this_grade_max_diamond:2200},fans_club:{data:{anchor_id:a,level:12,user_fans_club_status:2,user_guard_status:1,guard_expired_time:1999999999,...over}}}});
 async function idle(s:FanService){for(let n=0;n<200&&s.busy;n++)await new Promise(r=>setImmediate(r));assert.equal(s.busy,false)}
 function setup(t:any){const db=new DatabaseSync(':memory:'),store=new FanStore(db);let owner='100',captcha=false;const calls:string[]=[];const cx:FanConnection={resolve:async()=>({user:target,data:data()}),assert:async()=>{},read:async p=>{calls.push(p.anchor_id||'profile');return data(p.anchor_id||'0')}};const wire:FanWire={connect:async o=>{assert.equal(o,'100');return cx},challenge:async()=>captcha,show:()=>{}};const waits:number[]=[];const service=new FanService(store,wire,()=>owner,()=>{},async ms=>{waits.push(ms)});t.after(()=>db.close());return {db,store,cx,wire,service,calls,waits,setOwner:(x:string)=>{owner=x},setCaptcha:(x:boolean)=>{captcha=x}}}
-test('主页分享解析、明确内部 UID、大整数、禁止外部协议及视频链接',()=>{
+test('主页分享解析、明确内部 UID、大整数、禁止外部协议，支持作品链接',()=>{
  assert.deepEqual(fanInput('9007199254740999'),{kind:'uid',value:'9007199254740999'});assert.equal(fanInput(target.sec_uid).value,target.sec_uid);
  assert.equal(fanInput('看看主页 '+target.profile_url+' 复制打开').kind,'sec');assert.equal(fanInput('https://v.douyin.com/Abc123/').kind,'url');
  assert.equal(fanInput('https://www.iesdouyin.com/share/user/7/?sec_uid='+target.sec_uid).value,target.sec_uid);
- for(const x of ['bytedance://abc','https://evil.example/user/'+target.sec_uid,'https://www.douyin.com/video/123','https://user:pass@v.douyin.com/abc/','https://www.douyin.com:8443/user/'+target.sec_uid])assert.throws(()=>fanInput(x));
+ for(const x of ['bytedance://abc','https://evil.example/user/'+target.sec_uid,'https://user:pass@v.douyin.com/abc/','https://www.douyin.com:8443/user/'+target.sec_uid])assert.throws(()=>fanInput(x));
  const u=losslessJSON('{"status_code":0,"data":{"id":9007199254740999,"sec_uid":"'+target.sec_uid+'","nickname":"test"}}');assert.equal(fanUser(u).uid,target.uid);
  assert.throws(()=>fanUser(data(),{uid:'8'}),/目标账号/);
 });
@@ -79,3 +79,4 @@ test('连接短期复用身份校验，主页识别不请求粉丝团；会话�
  const u=await cx.resolve(target.sec_uid);assert.equal(u.user.is_private,true);assert.equal(u.data,null);assert.equal(profileCalls,1);assert.equal(apiCalls,0);
  identity='changed-session';await assert.rejects(cx.read({target_uid:target.uid}),/会话已变化/);assert.equal(apiCalls,0);await wire.connect('100');assert.equal(ownerCalls,2);
 });
+test('主播识别预览不立即写入，确认绑定原输入且保留查询目标',async t=>{const f=setup(t);await f.service.resolve(target.uid);await f.service.resolve('7','preview');assert.equal(f.store.anchors('100').length,0);assert.equal(f.service.state().target?.uid,target.uid);assert.throws(()=>f.service.commitAnchor('8'),/输入或账号/);f.service.commitAnchor('7');assert.equal(f.store.anchors('100').length,1);assert.equal(f.service.state().anchorPreview,null)});

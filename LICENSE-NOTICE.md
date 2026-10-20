@@ -3,3 +3,5 @@
 此应用为用户本地使用而构建。随包包含 Electron 运行时，Electron 为 MIT 许可；Chromium 和其依赖许可见运行时文件夹中的 LICENSE、LICENSES.chromium.html。SQLite 随运行时提供。源代码构建依赖及锁定版本见 package-lock.json。
 
 抖音名称用于说明本软件处理的网站和数据来源。本软件不是抖音官方产品。初始关注清单和历史记录来自本次用户任务，应由用户自行保管。
+
+Excel 文件读写使用 ExcelJS 4.4.0（MIT），其生产依赖随软件放在 resources/app/node_modules，各组件的 LICENSE / NOTICE 文件保留在对应目录。完整依赖及版本见源码包 package-lock.json。

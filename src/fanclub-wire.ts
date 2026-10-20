@@ -1,4 +1,4 @@
-import {Session} from 'electron';
+import {Session,net} from 'electron';
 import {DouyinTransport} from './browser';
 import {CollectError} from './transport';
 import {losslessJSON} from './groups';
@@ -8,6 +8,17 @@ export class DouyinFanWire implements FanWire {
   private last=0;
   private verified:{owner:string;identity:string;at:number}|null=null;
   constructor(private session:Session,private transport:DouyinTransport){}
+  private async redirect(url:string):Promise<string>{
+    // Electron Session.fetch rejects redirect:'manual' with "Redirect was cancelled".
+    // ClientRequest exposes the Location without following it; every hop is validated below.
+    if(net?.request)return new Promise((resolve,reject)=>{
+      const req=net.request({url,session:this.session,method:'GET',redirect:'manual',credentials:'omit',useSessionCookies:false});let settled=false;
+      const timer=setTimeout(()=>finish(new CollectError('TIMEOUT','分享链接跳转超时')),15000);
+      const finish=(error?:Error,location?:string)=>{if(settled)return;settled=true;clearTimeout(timer);error?reject(error):resolve(location!);req.abort()};
+      req.on('redirect',(_status,_method,location)=>finish(undefined,location));req.on('response',()=>finish(new CollectError('INPUT','分享链接未返回可识别跳转，请检查是否已失效')));req.on('error',()=>finish(new CollectError('NETWORK','分享链接暂时无法解析')));req.end();
+    });
+    const response=await this.session.fetch(url,{method:'GET',redirect:'manual',credentials:'omit',signal:AbortSignal.timeout(15000)});const location=response.headers.get('location');void response.body?.cancel().catch(()=>{});if(!location||response.status<300||response.status>=400)throw new CollectError('INPUT','分享链接未返回可识别跳转，请检查是否已失效');return location;
+  }
   challenge(target?:FanUser,navigate=false){return this.transport.challenge(target,navigate)}
   show(){this.transport.show()}
   async connect(owner:string):Promise<FanConnection>{
@@ -32,14 +43,12 @@ export class DouyinFanWire implements FanWire {
       let input=fanInput(raw);
       if(input.kind==='url'){
         for(let i=0;i<6&&input.kind==='url';i++){
-          await assert();const u=fanLink(input.value);let response:Response;
-          try{response=await this.session.fetch(u.href,{method:'GET',redirect:'manual',credentials:'omit',signal:AbortSignal.timeout(20000)})}catch{throw new CollectError('NETWORK','分享链接暂时无法解析')}
-          const location=response.headers.get('location');void response.body?.cancel().catch(()=>{});
-          if(!location||response.status<300||response.status>=400)throw new CollectError('INPUT','分享链接没有指向用户主页，请粘贴完整主页地址或 sec_uid');
+          await assert();const u=fanLink(input.value);const location=await this.redirect(u.href);
           input=fanInput(fanLink(new URL(location,u).href).href);
         }
       }
       if(input.kind==='url')throw new CollectError('INPUT','分享链接跳转次数过多');
+      if(input.kind==='work'){const user={...fanWebUser(await this.transport.workAuthor(input.value)),source_kind:'work' as const,source_work_id:input.value};await assert();return {user,data:null}}
       if(input.kind==='sec'){const user=fanWebUser(await this.transport.resolveSec(input.value));await assert();return {user,data:null}}
       const data=await read({target_uid:input.value}),user=fanUser(data,{uid:input.value});const profile=await this.transport.resolveSec(user.sec_uid);if(profile.uid!==user.uid)throw new CollectError('IDENTITY','主页身份与内部 UID 不一致');await assert();return {user:fanWebUser(profile),data};
     };

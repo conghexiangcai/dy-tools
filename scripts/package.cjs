@@ -9,6 +9,17 @@ fs.renameSync(path.join(target,'electron.exe'),path.join(target,'抖音整理箱
 const bundle=path.join(target,'resources','app');fs.mkdirSync(bundle,{recursive:true});
 const templates=['report-template.html','desktop-report-template.html'];
 for(const folder of ['dist','public'])fs.cpSync(path.join(root,folder),path.join(bundle,folder),{recursive:true,filter:src=>!src.split(path.sep).includes('tests')});
+// Include only the production dependency graph; never ship development sessions or Electron twice.
+const copied=new Set();
+function dependency(name,from,optional=false){
+ let base=from,dir;
+ for(;;){const candidate=path.join(base,'node_modules',name);if(fs.existsSync(path.join(candidate,'package.json'))){dir=candidate;break}const parent=path.dirname(base);if(parent===base)break;base=parent}
+ if(!dir){if(optional)return;throw Error('Missing production dependency: '+name)}
+ const relative=path.relative(root,dir);if(relative.startsWith('..')||path.isAbsolute(relative))throw Error('Dependency outside project: '+name);
+ if(copied.has(dir))return;copied.add(dir);fs.cpSync(dir,path.join(bundle,relative),{recursive:true,filter:src=>!src.split(path.sep).includes('.git')});
+ const manifest=JSON.parse(fs.readFileSync(path.join(dir,'package.json'),'utf8'));for(const child of Object.keys(manifest.dependencies||{}))dependency(child,dir,!!manifest.optionalDependencies?.[child]);for(const child of Object.keys(manifest.optionalDependencies||{}))dependency(child,dir,true);
+}
+for(const name of Object.keys(pkg.dependencies||{}))dependency(name,root);
 fs.mkdirSync(path.join(bundle,'resources'));for(const file of templates)fs.copyFileSync(path.join(root,'resources',file),path.join(bundle,'resources',file));
 fs.writeFileSync(path.join(bundle,'package.json'),JSON.stringify({name:pkg.name,productName:pkg.productName,version:pkg.version,main:pkg.main}));
 fs.copyFileSync(path.join(root,'README.md'),path.join(target,'使用说明.md'));
@@ -16,7 +27,7 @@ fs.copyFileSync(path.join(root,'VERIFICATION-'+pkg.version+'.md'),path.join(targ
 fs.copyFileSync(path.join(root,'LICENSE-NOTICE.md'),path.join(target,'许可说明.md'));
 const sourceBase=path.join(release,'抖音整理箱-'+pkg.version+'-源码');const source=fs.existsSync(sourceBase)?sourceBase+'-'+Date.now():sourceBase;fs.mkdirSync(source);
 for(const file of ['src','public','package.json','package-lock.json','tsconfig.json','README.md','VERIFICATION-'+pkg.version+'.md','LICENSE-NOTICE.md','.gitignore'])fs.cpSync(path.join(root,file),path.join(source,file),{recursive:true});
-fs.mkdirSync(path.join(source,'scripts'));for(const file of ['assets.cjs','package.cjs','smoke.cjs','group-smoke.cjs','group-fixture.cjs','fanclub-smoke.cjs','fanclub-fixture.cjs','toolbox-smoke.cjs'])fs.copyFileSync(path.join(root,'scripts',file),path.join(source,'scripts',file));
+fs.mkdirSync(path.join(source,'scripts'));for(const file of ['assets.cjs','package.cjs','smoke.cjs','group-smoke.cjs','group-fixture.cjs','fanclub-smoke.cjs','fanclub-fixture.cjs','toolbox-smoke.cjs','chat-smoke.cjs'])fs.copyFileSync(path.join(root,'scripts',file),path.join(source,'scripts',file));
 fs.mkdirSync(path.join(source,'resources'));for(const file of templates)fs.copyFileSync(path.join(root,'resources',file),path.join(source,'resources',file));
 // Copy only explicit source folders; databases, login sessions, output and node_modules are excluded.
 const quote=s=>"'"+s.replace(/'/g,"''")+"'";

@@ -59,6 +59,7 @@ export class DouyinTransport implements Transport {
   async following(owner:User,offset:number,time:number){return parseFollowing(await this.request(FOLLOWING,{user_id:owner.uid,sec_user_id:owner.sec_uid,offset:String(offset),max_time:String(time),count:'20'}));}
   async profile(user:User){const data=await this.request(PROFILE,{sec_user_id:user.sec_uid});if(!data.user||String(data.user.uid)!==user.uid)throw new CollectError('SCHEMA','详情接口身份不匹配');return data.user;}
   async resolveSec(sec:string){const data=await this.request(PROFILE,{sec_user_id:sec});let u:User;try{u=cleanUser(data.user)}catch{throw new CollectError('SCHEMA','主页接口未返回完整账号身份')}if(u.sec_uid!==sec)throw new CollectError('IDENTITY','主页账号身份与输入不符');return u}
+  async workAuthor(id:string){const d=await this.request('/aweme/v1/web/aweme/detail/',{aweme_id:id});if(d.aweme_detail?.aweme_id!==id)throw new CollectError('IDENTITY','作品失效或返回了其他作品，无法确认作者');let u:User;try{u=cleanUser(d.aweme_detail.author)}catch{throw new CollectError('SCHEMA','作品未返回可靠作者身份')}const p=await this.resolveSec(u.sec_uid);if(p.uid!==u.uid)throw new CollectError('IDENTITY','作品作者与主页身份不一致');return p}
   async searchUsers(keyword:string,offset=0,searchId?:string){
     if(offset&&(!searchId||!/^[A-Za-z0-9_-]{1,200}$/.test(searchId)))throw new CollectError('SCHEMA','搜索分页凭据缺失，请重新搜索');
     await delay(Math.max(0,1000-(Date.now()-this.searchAt)));this.searchAt=Date.now();

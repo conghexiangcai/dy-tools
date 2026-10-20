@@ -1,14 +1,15 @@
 import {count,uidValid,User} from './domain';
 import {CollectError} from './transport';
 
-export type FanUser={uid:string;sec_uid:string;nickname:string;account:string;avatar:string;profile_url:string;is_private?:boolean|null};
+export type FanUser={uid:string;sec_uid:string;nickname:string;account:string;avatar:string;profile_url:string;is_private?:boolean|null;source_kind?:'profile'|'work';source_work_id?:string};
 export type FanAnchor=FanUser&{remark:string;selected:boolean};
 export type Honor={level:number|null;diamond_min:number|null;diamond_max:number|null};
 export type FanResult={anchor:FanAnchor;state:'ok'|'unknown'|'failed';level:number|null;club_name:string;badge:'active'|'inactive'|'unknown';guard:'unknown';guard_expires_at:null;checked_at:string;message:string};
 export type FanRun={id:string;owner_uid:string;target:FanUser;anchors:FanAnchor[];honor:Honor;results:FanResult[];status:'running'|'paused'|'waiting_login'|'waiting_verification'|'cooldown'|'completed'|'error';message:string;started_at:string;updated_at:string};
-export type FanInput={kind:'uid'|'sec'|'url';value:string};
+export type FanInput={kind:'uid'|'sec'|'url'|'work';value:string};
 export type FanSearchPage={users:FanUser[];cursor:number;more:boolean;search_id?:string};
-export function lookupKind(raw:string,mode:string):'account'|'profile'{if(typeof raw!=='string'||raw.length>4000)throw Error('请输入抖音号或主页链接');if(!['auto','uid','profile'].includes(mode))throw Error('输入类型无效');if(mode==='uid'){if(!/^\d{1,32}$/.test(raw.trim()))throw Error('内部 UID 应为纯数字');return 'profile'}if(mode==='profile'||/^MS4[A-Za-z0-9_-]{8,195}$/.test(raw.trim())||/https:\/\//.test(raw))return 'profile';return 'account'}
+export function normalizeShare(raw:string){return raw.replace(/https\\:\/\//gi,'https://').replace(/https:\\\/\\\//gi,'https://').trim()}
+export function lookupKind(raw:string,mode:string):'account'|'profile'{if(typeof raw!=='string'||raw.length>4000)throw Error('请输入抖音号或分享链接');raw=normalizeShare(raw);if(!['auto','uid','profile'].includes(mode))throw Error('输入类型无效');if(mode==='uid'){if(!/^\d{1,32}$/.test(raw.trim()))throw Error('内部 UID 应为纯数字');return 'profile'}if(mode==='profile'||/^MS4[A-Za-z0-9_-]{8,195}$/.test(raw.trim())||/https:\/\//.test(raw))return 'profile';return 'account'}
 export function accountKeyword(raw:unknown):string{if(typeof raw!=='string')throw Error('请输入抖音号');const s=raw.trim().replace(/^抖音号\s*[：:]\s*/,'').replace(/^@/,'');if(!/^[A-Za-z0-9_.-]{1,64}$/.test(s))throw Error('请输入完整抖音号，或粘贴主页分享链接');return s}
 export const fanParams={device_platform:'android',aid:'1128',channel:'channel_pc_web',version_code:'400600',version_name:'40.6.0',update_version_code:'400601',pc_client_type:'1',platform:'PC',packed_level:'2',current_room_id:'0'};
 export const FAN_USER='/webcast/user/';
@@ -21,16 +22,18 @@ export function fanLink(value:string):URL {
 }
 export function fanInput(raw:unknown):FanInput {
   if(typeof raw!=='string'||raw.length>4000)throw Error('请输入主页分享文本、sec_uid 或内部 UID');
-  const s=raw.trim();if(/^\d{1,32}$/.test(s))return {kind:'uid',value:s};
+  const s=normalizeShare(raw);if(/^\d{1,32}$/.test(s))return {kind:'uid',value:s};
   if(/^MS4[A-Za-z0-9_-]{8,195}$/.test(s))return {kind:'sec',value:s};
-  const links=s.match(/https:\/\/[^\s<>"\u3000]+/g)||[];
-  if(links.length!==1)throw Error('请提供一个主页分享链接；数字输入按内部 UID 处理，不是抖音号');
-  const u=fanLink(links[0].replace(/[，。；）)]+$/,''));const userPath=/^\/(?:share\/)?user\//.test(u.pathname);const sec=u.pathname.match(/^\/(?:share\/)?user\/(MS4[A-Za-z0-9_-]{8,195})\/?$/)?.[1]||(userPath?(u.searchParams.get('sec_uid')||u.searchParams.get('sec_user_id')):null);
+  const links=[...new Set((s.match(/https:\/\/[^\s<>"“”‘’\u3000]+/g)||[]).map(x=>x.replace(/[，。；）)\]】》！!]+$/,'')))];
+  if(links.length!==1)throw Error('请提供一个作品或主页分享链接；存在多个不同链接时请只保留一个');
+  const u=fanLink(links[0]),work=u.pathname.match(/^\/(?:share\/)?(?:video|note)\/(\d{1,32})\/?$/)?.[1];if(work)return {kind:'work',value:work};
+  const modal=u.searchParams.get('modal_id');if(modal&&/^\d{1,32}$/.test(modal)&&['www.douyin.com','douyin.com'].includes(u.hostname))return {kind:'work',value:modal};
+  const userPath=/^\/(?:share\/)?user\//.test(u.pathname);const sec=u.pathname.match(/^\/(?:share\/)?user\/(MS4[A-Za-z0-9_-]{8,195})\/?$/)?.[1]||(userPath?(u.searchParams.get('sec_uid')||u.searchParams.get('sec_user_id')):null);
   if(sec&&!/^MS4[A-Za-z0-9_-]{8,195}$/.test(sec))throw Error('链接中的用户 ID 无效');
   if(sec)return {kind:'sec',value:sec};
   const numeric=u.pathname.match(/^\/share\/user\/(\d{1,32})\/?$/)?.[1];if(numeric)return {kind:'uid',value:numeric};
   if(u.hostname==='v.douyin.com'&&/^\/[A-Za-z0-9_-]+\/?$/.test(u.pathname))return {kind:'url',value:u.href};
-  throw Error('链接不是用户主页，请在抖音个人主页使用“分享”');
+  throw Error('未识别到作品或主页，请复制抖音的作品／主页分享链接');
 }
 export function fanUser(data:any,expected?:{uid?:string;sec_uid?:string}):FanUser {
   const u=data?.data;if(data?.status_code!==0||!u||typeof u!=='object')throw new CollectError('SCHEMA','用户资料格式异常');

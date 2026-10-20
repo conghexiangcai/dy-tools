@@ -18,7 +18,8 @@ export class FanUI {
       case 'fanState':return this.service.state();
       case 'fanLogin':this.service.pause();await this.stopCollector();await this.login();return true;
       case 'fanConnect':this.service.pause();await this.stopCollector();await this.connect();return true;
-      case 'fanResolve':case 'fanAdd':await this.stopCollector();return lookupKind(p?.input,p?.mode||'auto')==='account'?this.service.search(p?.input,method==='fanAdd'):this.service.resolve(p?.input,method==='fanAdd',undefined,p?.mode||'auto');
+      case 'fanResolve':case 'fanAdd':await this.stopCollector();return lookupKind(p?.input,p?.mode||'auto')==='account'?this.service.search(p?.input,method==='fanAdd'):this.service.resolve(p?.input,method==='fanAdd'?'preview':false,undefined,p?.mode||'auto');
+      case 'fanCommitAnchor':this.service.commitAnchor(String(p?.input||''));return true;
       case 'fanChoose':await this.stopCollector();return this.service.choose(p?.token,p?.uid,p?.input);
       case 'fanMore':await this.stopCollector();return this.service.more(p?.token);
       case 'fanEdit':if(!p||typeof p.uid!=='string')throw Error('主播编号无效');this.service.edit(p.uid,p);return true;
@@ -26,7 +27,7 @@ export class FanUI {
       case 'fanStart':await this.stopCollector();await this.service.start();return true;
       case 'fanPause':this.service.pause();return true;
       case 'fanResume':case 'fanRetry':case 'fanVerified':await this.stopCollector();await this.service.resume(method==='fanVerified',method==='fanRetry');return true;
-      case 'fanProfile':{const s=this.service.state();const users=[s.target,s.run?.target,...s.anchors,...s.run?.anchors||[],...s.search?.users||[]];const u=users.find(u=>u?.uid===p?.uid);if(!u)throw Error('账号已变更');await this.profile(u.uid,u.sec_uid,u.nickname);return true;}
+      case 'fanProfile':{const s=this.service.state();const users=[s.anchorPreview?.user,s.target,s.run?.target,...s.anchors,...s.run?.anchors||[],...s.search?.users||[]];const u=users.find(u=>u?.uid===p?.uid);if(!u)throw Error('账号已变更');await this.profile(u.uid,u.sec_uid,u.nickname);return true;}
       case 'fanExport':{const r=this.service.state().run;if(!r)throw Error('尚无查询结果');const format=p?.format;if(!['html','json','md'].includes(format))throw Error('导出格式无效');const save=await dialog.showSaveDialog(this.window!,{defaultPath:path.join(process.env.USERPROFILE||'.','Documents','粉丝团查询-'+new Date().toISOString().slice(0,10)+'.'+format),filters:[{name:format.toUpperCase(),extensions:[format]}]});if(save.canceled||!save.filePath)return false;writeFileSync(save.filePath,fanExport(r,format),'utf8');return true}
       default:throw Error('不支持的粉丝团操作');
     }

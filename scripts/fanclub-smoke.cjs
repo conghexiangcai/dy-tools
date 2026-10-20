@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'..'),out=path.join(root,'output/playwright');
  const p=await app.firstWindow();await p.waitForSelector('#add');const errors=[];p.on('pageerror',e=>errors.push(e.message));
  assert.equal(await p.locator('#anchor-count').textContent(),'0');assert.equal(await p.locator('#start').isDisabled(),true);
  await p.locator('#anchor-mode').selectOption('uid');await p.locator('#target-mode').selectOption('uid');
- for(const uid of ['7','8','9','7']){await p.locator('#anchor-input').fill(uid);await p.locator('#add').click();await p.waitForFunction(()=>document.getElementById('anchor-input').value==='')}
+ for(const uid of ['7','8','9','7']){await p.locator('#anchor-input').fill(uid);await p.locator('#add').click();await p.waitForSelector('#commit-anchor',{timeout:10000}).catch(async e=>{console.error(await p.evaluate(async()=>({error:document.getElementById('error').textContent,input:document.getElementById('anchor-input').value,html:document.getElementById('anchor-preview')?.outerHTML,state:await desktop.call('fanState')})));throw e});await p.locator('#commit-anchor').click();await p.waitForFunction(()=>document.getElementById('anchor-input').value==='')}
  assert.equal(await p.locator('.anchor').count(),3);await p.locator('[data-remark="7"]').fill('常看主播');await p.locator('[data-remark="7"]').blur();await p.waitForFunction(()=>document.getElementById('add').disabled===false);
  await p.locator('#target-input').fill('1');await p.locator('#resolve').click();await p.waitForSelector('#target:not([hidden])');assert.ok((await p.locator('#target').textContent()).includes('合成目标用户'));
  await p.locator('#start').click();await p.waitForFunction(()=>document.getElementById('status').textContent.includes('查询完成'));

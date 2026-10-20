@@ -1,7 +1,7 @@
 {
   "name": "douyin-following-review",
   "productName": "抖音整理箱",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "本地抖音关注管理、互动记录整理与粉丝团查询工具箱",
   "main": "dist/main.js",
@@ -13,12 +13,16 @@
     "smoke:groups": "node scripts/group-smoke.cjs",
     "package": "npm run build && node scripts/package.cjs",
     "smoke:fanclub": "node scripts/fanclub-smoke.cjs",
-    "smoke:tools": "node scripts/toolbox-smoke.cjs"
+    "smoke:tools": "node scripts/toolbox-smoke.cjs",
+    "smoke:chat": "node scripts/chat-smoke.cjs"
   },
   "devDependencies": {
-    "electron": "44.5.1",
-    "typescript": "7.0.2",
     "@types/node": "24.19.0",
-    "playwright-core": "1.63.0"
+    "electron": "44.5.1",
+    "playwright-core": "1.63.0",
+    "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "exceljs": "4.4.0"
   }
 }
