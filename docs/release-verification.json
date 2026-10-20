@@ -1,0 +1,587 @@
+{
+  "repository": "https://github.com/conghexiangcai/dy-tools",
+  "verified_at": "2026-10-20T10:02:01+0800",
+  "latest": "v2.4.3",
+  "source_revisions": 27,
+  "releases": 21,
+  "tags": {
+    "v2.4.3": "e03ae63da5d5d34e08c057e1d55af0f4437a48eb",
+    "v2.4.2": "33dfbc3202b3404da6eaf9dc2a88b69cbc3d010b",
+    "v2.4.1": "ef903c9da50dc358644d310032117842256a92c8",
+    "v2.4.0": "8c51f46ddf8ffdd70264473c9161dbb1b2190584",
+    "v2.3.1": "0a84addcfdd1af6933e02455cbbf8bf87802d24c",
+    "v2.3.1-build.1": "5610cfdcaca069c6ca8da947e183574048ed769c",
+    "v2.3.0": "0f5a167842937ddde5940983669942fe6c8f5970",
+    "v2.3.0-build.1": "6d63186dfbc272d101a8f4ac2db0d1201d741138",
+    "v2.2.0": "23775cd784f2991256b4220afc6f61f9cbc199b9",
+    "v2.2.0-build.2": "ed4cdf9c40680543bc1cc32187b2e70eca22a048",
+    "v2.2.0-build.1": "71d8f5643a0fab41c35f5de7ba5f0ba3c04aef5c",
+    "v2.1.0": "85730593d4752d8507dfdf57e0eb5d9adfd11b4f",
+    "v2.0.0": "c1afd7c55917b0906c3a22037d4db4743a306cdc",
+    "v1.4.1": "cbecea827ee6a9bacc1faab71c8711aa99100633",
+    "v1.4.0": "2b0d4fae0f64bba0eebc73dd56427a89b8b0c938",
+    "v1.3.0": "8d554f7e741cbc0b75c74805865ee7aba43c6834",
+    "v1.3.0-build.1": "2666ba73ecf07f5a9942087dc76416b7857f2ce2",
+    "v1.2.1": "780232640d3dabbe4a4f0ca6117e0feb124e8f1c",
+    "v1.2.0": "3a88eab9a8294dee3b29e2bb872a6a72f4511583",
+    "v1.1.5": "711394c1feaf51857cc7162009196b45a8406252",
+    "v1.1.4": "d4542f92b677be90cc39a29221423a4fb7a9d9b5",
+    "v1.1.3": "708b03bbdbd7f9e66d6d40bed23afcad6e887a34",
+    "v1.1.2": "9afb4fe9d566bb9c89acc91b7bfaf75aaad1322c",
+    "v1.1.1": "ec85a380941456792729c69934a94d76462436a5",
+    "v1.1.0": "7700e49c94f690b9e26b94d1cadb090024cab3da",
+    "v1.1.0-build.1": "2e79a33791bca480b6bad3b79a00edf0eea4c76a",
+    "v1.0.0": "fcf4d03e7d9f5a09b527c476e82ddd9752fa227d"
+  },
+  "asset_count": 78,
+  "asset_bytes": 3287611189,
+  "method": "Every public download streamed and SHA256 compared; GitHub asset digest and size also checked",
+  "assets": [
+    {
+      "name": "v1.0.0-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.0.0/v1.0.0-source.zip",
+      "bytes": 60831,
+      "sha256": "4230ecb9a4baf63cd32c23ec3d2a42ecfa0483a4fef9c8357eccc5aea0a1a528",
+      "download_verified": true
+    },
+    {
+      "name": "v1.0.0-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.0.0/v1.0.0-SHA256SUMS.txt",
+      "bytes": 84,
+      "sha256": "88d33bd5e02eaf1e5e9103b06e273dd606be13ef433c603a48dd2b457e9f7504",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.0-build.1-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.0/v1.1.0-build.1-source.zip",
+      "bytes": 79692,
+      "sha256": "b35c68b99c5beebba35c7593e46d8e01f67ac21f17159013bbd1fe9a77d6d4b8",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.0-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.0/v1.1.0-source.zip",
+      "bytes": 79573,
+      "sha256": "51d7bb91a68182f2728dbfee0cd831b082e4fb6022d3a6906161d002ab753546",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.0-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.0/v1.1.0-SHA256SUMS.txt",
+      "bytes": 176,
+      "sha256": "e56a820a6cdb8f91a59ee95cea1c0b4fc46ac04fba6281c7d8e966fb218cf1d7",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.1-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.1/v1.1.1-source.zip",
+      "bytes": 79757,
+      "sha256": "93bd4ab0fa9a91526b9c23de7bd877be849d96b129aaefafee8ed54581865581",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.1-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.1/v1.1.1-SHA256SUMS.txt",
+      "bytes": 84,
+      "sha256": "92cda261eaed628669d949a06181c3dc4f79366c7479f29a700faf6071391813",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.2-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.2/v1.1.2-source.zip",
+      "bytes": 80874,
+      "sha256": "c31ce18905b395691d032eba5dfe36623acbbc7b13d17297f4c5238a0d2ad796",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.2-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.2/v1.1.2-SHA256SUMS.txt",
+      "bytes": 84,
+      "sha256": "617ffa324ddcf905fa8bc5f52e59250a823904a0a2b1da087a20a105d1f2200c",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.3-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.3/v1.1.3-source.zip",
+      "bytes": 82721,
+      "sha256": "52105f95cef2f3bf48a062e898c13ae4c6fa1cc72bfe5a32699a8e11d8c87a70",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.3-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.3/v1.1.3-SHA256SUMS.txt",
+      "bytes": 84,
+      "sha256": "53ca9546fe26dfd9eda4f8b44c913927b14847ea9fd78e6abecd768258148251",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.4-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.4/v1.1.4-source.zip",
+      "bytes": 79600,
+      "sha256": "1d5b05174a9e8d3231e1c9c931631c32b31baddf461f831dcc91f84fad94b9bf",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.4-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.4/v1.1.4-win-x64.zip",
+      "bytes": 158063839,
+      "sha256": "4189924b76801eb4efa880f5c8038a4b81e09b886cd82cd00a15de15809589cc",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.4-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.4/v1.1.4-SHA256SUMS.txt",
+      "bytes": 169,
+      "sha256": "e1f4770cf0a82f04b254f829c2108104a8502071714ae2c2f81128df955b58de",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.5-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.5/v1.1.5-source.zip",
+      "bytes": 80254,
+      "sha256": "ccb1ed16cd49ae21110326912433c4aeefae66858276b74087033570b52e4fea",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.5-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.5/v1.1.5-win-x64.zip",
+      "bytes": 158064368,
+      "sha256": "acc03c0fdf1e3bcd54b6a7e9db8c1dfa3cfed7033e2f46cf2edf9cf380b06cea",
+      "download_verified": true
+    },
+    {
+      "name": "v1.1.5-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.1.5/v1.1.5-SHA256SUMS.txt",
+      "bytes": 169,
+      "sha256": "08aff6a09d624a41f9bf81fd7e1cbaa9cd55e09783d44d1bc660dd5fe0efb674",
+      "download_verified": true
+    },
+    {
+      "name": "v1.2.0-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.2.0/v1.2.0-source.zip",
+      "bytes": 106417,
+      "sha256": "f398d96e368705dbed14b12798862c5c9e6b1f9d028275bf404bf6e2496f818b",
+      "download_verified": true
+    },
+    {
+      "name": "v1.2.0-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.2.0/v1.2.0-win-x64.zip",
+      "bytes": 158083238,
+      "sha256": "c68aa4c578c4cd404447ef7406c15058220bf0902a425c49db9867c2f7818193",
+      "download_verified": true
+    },
+    {
+      "name": "v1.2.0-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.2.0/v1.2.0-SHA256SUMS.txt",
+      "bytes": 169,
+      "sha256": "18ca159e086834bfdf2bd87bb0d085ad1a4b1a90defbeaf9c4f2b66b6608ecd3",
+      "download_verified": true
+    },
+    {
+      "name": "v1.2.1-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.2.1/v1.2.1-source.zip",
+      "bytes": 107543,
+      "sha256": "528a18e584946d30bf46e66cc7207b961bc6180242caac6d607ac6bd0c45575f",
+      "download_verified": true
+    },
+    {
+      "name": "v1.2.1-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.2.1/v1.2.1-win-x64.zip",
+      "bytes": 158083837,
+      "sha256": "ebe43e4b28d9312399e903e7b35bb740d0699fdad7143d2662b33b3bb6b14cf6",
+      "download_verified": true
+    },
+    {
+      "name": "v1.2.1-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.2.1/v1.2.1-SHA256SUMS.txt",
+      "bytes": 169,
+      "sha256": "0ecd5eef377568f27b4412ac1c192ca0d71b2df721711e73069e567fd399d17b",
+      "download_verified": true
+    },
+    {
+      "name": "v1.3.0-build.1-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.3.0/v1.3.0-build.1-source.zip",
+      "bytes": 136091,
+      "sha256": "5f8865ff90a73d44bb542f62b0b4338d4115b4374e9ee72b03436bd733ba5e0e",
+      "download_verified": true
+    },
+    {
+      "name": "v1.3.0-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.3.0/v1.3.0-source.zip",
+      "bytes": 135348,
+      "sha256": "a919e2e7eea195cd53125f1e02c1f8194d7831119fa0934cebc89ed8a021f1a8",
+      "download_verified": true
+    },
+    {
+      "name": "v1.3.0-build.1-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.3.0/v1.3.0-build.1-win-x64.zip",
+      "bytes": 158105700,
+      "sha256": "c6d459940efb3f8ea01d5a4cf0d73ed6c27cd3df5dcaeeff2a6d91f76d69febc",
+      "download_verified": true
+    },
+    {
+      "name": "v1.3.0-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.3.0/v1.3.0-win-x64.zip",
+      "bytes": 158108961,
+      "sha256": "6015f949899aa0cef4722e7fcbb32b6bab477c55c9563789d9b3686b9880660a",
+      "download_verified": true
+    },
+    {
+      "name": "v1.3.0-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.3.0/v1.3.0-SHA256SUMS.txt",
+      "bytes": 354,
+      "sha256": "4a669502dfe029ee6aea610ea33a7aabe02d2b9f814204e3dbe715f1851db22b",
+      "download_verified": true
+    },
+    {
+      "name": "v1.4.0-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.4.0/v1.4.0-source.zip",
+      "bytes": 142676,
+      "sha256": "8424dea2576de676c8883d8f0fc612bf72d74eaa0dd7c6ba1cacc1755b3407c1",
+      "download_verified": true
+    },
+    {
+      "name": "v1.4.0-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.4.0/v1.4.0-win-x64.zip",
+      "bytes": 158111336,
+      "sha256": "9b6c5fa36e45b4a1f21ed3bc750e021ed557a8cbc46026a6be259b77518d53fe",
+      "download_verified": true
+    },
+    {
+      "name": "v1.4.0-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.4.0/v1.4.0-SHA256SUMS.txt",
+      "bytes": 169,
+      "sha256": "16c3a4c47efbccc66bb10afbf8d93092d72863d6335d8472e7119641d8fd85b6",
+      "download_verified": true
+    },
+    {
+      "name": "v1.4.1-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.4.1/v1.4.1-source.zip",
+      "bytes": 142444,
+      "sha256": "694906845b81256cdc016e91d6f91aedcf49f70fce7f49045845ca7fb8c342d1",
+      "download_verified": true
+    },
+    {
+      "name": "v1.4.1-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.4.1/v1.4.1-win-x64.zip",
+      "bytes": 158110995,
+      "sha256": "14d1eb8b6621ea409b514eb3506fb5e4d6ed3218395d4694e506cd8b0308648a",
+      "download_verified": true
+    },
+    {
+      "name": "v1.4.1-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v1.4.1/v1.4.1-SHA256SUMS.txt",
+      "bytes": 169,
+      "sha256": "14b2ce8b62a7c30f206bfc8176f1235534639b3532aa50904a0f781d1d71a8de",
+      "download_verified": true
+    },
+    {
+      "name": "v2.0.0-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.0.0/v2.0.0-source.zip",
+      "bytes": 172571,
+      "sha256": "b92e198ed4d91b531d966e6d6e0ba4cef8c3ed3e220c623befec3b50693fe4a5",
+      "download_verified": true
+    },
+    {
+      "name": "v2.0.0-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.0.0/v2.0.0-win-x64.zip",
+      "bytes": 158134480,
+      "sha256": "fefb959f7b46a320c3ab5b478f7e7b57779f4e263271ede2e946c33c640f5375",
+      "download_verified": true
+    },
+    {
+      "name": "v2.0.0-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.0.0/v2.0.0-SHA256SUMS.txt",
+      "bytes": 169,
+      "sha256": "e8e8e684faccee776e857de2fa6ce579f15e3510ba5174530ff4defe8ff80f8b",
+      "download_verified": true
+    },
+    {
+      "name": "v2.1.0-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.1.0/v2.1.0-source.zip",
+      "bytes": 229050,
+      "sha256": "69e75832c8e41ac9bab47c54d0c3f83324a7f1e4189a368bfc646ffd954edd51",
+      "download_verified": true
+    },
+    {
+      "name": "v2.1.0-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.1.0/v2.1.0-win-x64.zip",
+      "bytes": 168900263,
+      "sha256": "e6355af5476a2d6f5db4479df5709a1528e2b4deec394d8c8fe8c50047cb290f",
+      "download_verified": true
+    },
+    {
+      "name": "v2.1.0-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.1.0/v2.1.0-SHA256SUMS.txt",
+      "bytes": 169,
+      "sha256": "922cffdd6a470355b3a7a880d62652093e2488446b81155ef4624187a75d2ca8",
+      "download_verified": true
+    },
+    {
+      "name": "v2.2.0-build.1-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.2.0/v2.2.0-build.1-source.zip",
+      "bytes": 265171,
+      "sha256": "d6ac5a8c44a3a4689bfe97b14c0e01c7d5f2d2c34af8db52aedcb8bac72bfd51",
+      "download_verified": true
+    },
+    {
+      "name": "v2.2.0-build.2-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.2.0/v2.2.0-build.2-source.zip",
+      "bytes": 265378,
+      "sha256": "29c5f0a4f94b1ac4bfee8d284a2ab24b2fea04d8c956fc3fd126757443c444d4",
+      "download_verified": true
+    },
+    {
+      "name": "v2.2.0-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.2.0/v2.2.0-source.zip",
+      "bytes": 263951,
+      "sha256": "8d0d7fd9d8f8da7cff7e311283fa2333375930d0ce2e057ef8d319396d04fced",
+      "download_verified": true
+    },
+    {
+      "name": "v2.2.0-build.1-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.2.0/v2.2.0-build.1-win-x64.zip",
+      "bytes": 168925472,
+      "sha256": "3513a45e36cb1b06c78d85652531cc33350403578316c73c72d94be8777a310a",
+      "download_verified": true
+    },
+    {
+      "name": "v2.2.0-build.2-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.2.0/v2.2.0-build.2-win-x64.zip",
+      "bytes": 169096562,
+      "sha256": "0950ded62abe2e4ccb534b85b4500ef407648414a1789852ea33f32c77603308",
+      "download_verified": true
+    },
+    {
+      "name": "v2.2.0-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.2.0/v2.2.0-win-x64.zip",
+      "bytes": 169096719,
+      "sha256": "544a541c824d3873157736a2e4747bc07630b1a014d1596f3bda9dfce487b7eb",
+      "download_verified": true
+    },
+    {
+      "name": "v2.2.0-build.1-server.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.2.0/v2.2.0-build.1-server.zip",
+      "bytes": 19022,
+      "sha256": "b3f1fe4372f13600156b5dadec4a188f2859ab726342c578e5a490c867de133c",
+      "download_verified": true
+    },
+    {
+      "name": "v2.2.0-build.2-server.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.2.0/v2.2.0-build.2-server.zip",
+      "bytes": 19426,
+      "sha256": "80fa78c7094969c6b5bac5a11c9dc20bdeea91edca3dbe8956805630b1a619d6",
+      "download_verified": true
+    },
+    {
+      "name": "v2.2.0-server.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.2.0/v2.2.0-server.zip",
+      "bytes": 26472,
+      "sha256": "5412457993cbdd1ea36dc0e4494799bb57cd4c27466317484f6d736adc65fe6e",
+      "download_verified": true
+    },
+    {
+      "name": "v2.2.0-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.2.0/v2.2.0-SHA256SUMS.txt",
+      "bytes": 807,
+      "sha256": "cd2d6135fdb029c9d6ed6b2623c7590ec1de36287b6771b62515eb0d13b4af45",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.0-build.1-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.0/v2.3.0-build.1-source.zip",
+      "bytes": 306003,
+      "sha256": "9813369d9acc195146cacc329708725225ee585ce56f65a3d23c9cb09f7bee6b",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.0-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.0/v2.3.0-source.zip",
+      "bytes": 304330,
+      "sha256": "f80545a83ec5d405e1e180bea4efa9700d794a2c27b30a4fda9decb85736e7a6",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.0-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.0/v2.3.0-win-x64.zip",
+      "bytes": 169123519,
+      "sha256": "abeb20b968e972d4b3a98d0d8bd0c24bf54aa4522d0019b7bd0c22a8b115c34e",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.0-server.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.0/v2.3.0-server.zip",
+      "bytes": 26021,
+      "sha256": "bbc9939dad3ab595106cce8ec0ce4b514967431ca3d3a7337cf66be6bd0dd2a5",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.0-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.0/v2.3.0-SHA256SUMS.txt",
+      "bytes": 345,
+      "sha256": "205e30ba1f3f9b88e32662d9e3fc9b7abd781292398cc1f6704376a5c4d5e721",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.1-build.1-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.1/v2.3.1-build.1-source.zip",
+      "bytes": 316561,
+      "sha256": "82abe90281a929cc97ae75d93c3d81299205e3f9e9f9ed47c8ad95830debf0f9",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.1-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.1/v2.3.1-source.zip",
+      "bytes": 318994,
+      "sha256": "d37ffdfb61bf8440e5b208ea764e8b9dd4e03af6224ebf777300c3a24f21037a",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.1-build.1-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.1/v2.3.1-build.1-win-x64.zip",
+      "bytes": 168957246,
+      "sha256": "cbc865d5cc0443ff5672903f0c1db890a43117ad0edc3805ddfa37201ad36ca1",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.1-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.1/v2.3.1-win-x64.zip",
+      "bytes": 169129830,
+      "sha256": "879379773c7db6282e206da63fcb4542f44a3c51654303ab2f4682c363032d8a",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.1-build.1-server.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.1/v2.3.1-build.1-server.zip",
+      "bytes": 25685,
+      "sha256": "78f8630c5572b2cd087881278249de668d12f3b446963ad7787592df97fd93ac",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.1-server.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.1/v2.3.1-server.zip",
+      "bytes": 26021,
+      "sha256": "aee0f4da77e4433684e14f2dc2115d63a4f04a738086322257f9870c76e2eaaf",
+      "download_verified": true
+    },
+    {
+      "name": "v2.3.1-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.3.1/v2.3.1-SHA256SUMS.txt",
+      "bytes": 530,
+      "sha256": "708d2367b655a26ccd0810d5ec66c61da85a8fbce9e53978fbc1aee0fa0d7fe6",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.0-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.0/v2.4.0-source.zip",
+      "bytes": 351577,
+      "sha256": "14a88edc6a5b6de0f729da23d818312ba744e0e1289094da42fbf5beec0bcb04",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.0-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.0/v2.4.0-win-x64.zip",
+      "bytes": 168984853,
+      "sha256": "a8235f020b81d08b537138490abf5c5c379f666865eddb4aaac7ec3f67c0f513",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.0-server.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.0/v2.4.0-server.zip",
+      "bytes": 25685,
+      "sha256": "16ef1730a7740ebc6205b321845e2fd613898939dafbfb61aee63242500d97a4",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.0-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.0/v2.4.0-SHA256SUMS.txt",
+      "bytes": 253,
+      "sha256": "c686c7874a1b37362941a6f9c51cccd518411681bd5e44b6df88acf595df76fe",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.1-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.1/v2.4.1-source.zip",
+      "bytes": 359059,
+      "sha256": "6b73ab13c3b8416a943246d4264682985ed882fc54100c13fac6d18a9be92671",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.1-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.1/v2.4.1-win-x64.zip",
+      "bytes": 168985871,
+      "sha256": "60d2abf2687b3b2b16f4c68037716fa0b2278a03b23b33f55f40bbeda010dee2",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.1-server.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.1/v2.4.1-server.zip",
+      "bytes": 25685,
+      "sha256": "375470a3abc8249b2e2e94e98607e2eea944ed27a930f18d6420ec39e555ec1d",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.1-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.1/v2.4.1-SHA256SUMS.txt",
+      "bytes": 253,
+      "sha256": "54f0c74eb0e247520216e4973f76eac6b20e59cf067424e5166da960e95ad039",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.2-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.2/v2.4.2-source.zip",
+      "bytes": 373257,
+      "sha256": "3ba5da3a0a0622421f00e6e1e0369935bbbc9b313234c44b4394fe6179e374a4",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.2-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.2/v2.4.2-win-x64.zip",
+      "bytes": 168987408,
+      "sha256": "b6cf2215d44a3ed50eb5726b0ead3d4a0445d426054f311cff7316742636e8be",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.2-server.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.2/v2.4.2-server.zip",
+      "bytes": 35840,
+      "sha256": "05967cc3fe11ee29aa754b435f59b0b9f0a1572968328cf39beaa195036fff49",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.2-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.2/v2.4.2-SHA256SUMS.txt",
+      "bytes": 253,
+      "sha256": "33d62b192392d885e04fc26beb61ab67e765dc34cad0d669df02b60b4e6ca12c",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.3-source.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.3/v2.4.3-source.zip",
+      "bytes": 377948,
+      "sha256": "0d95ab901c586ad8b96d12e5cb5442c02742ae6b76c8662a67a60a12415f878b",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.3-win-x64.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.3/v2.4.3-win-x64.zip",
+      "bytes": 168988412,
+      "sha256": "f509ddbb236dc41e2eadf3801a938db609ef1f26e295ecfa63bbde129bfca089",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.3-server.zip",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.3/v2.4.3-server.zip",
+      "bytes": 35840,
+      "sha256": "0a65c5195f0240ac9c0ee63d0127f2a189d643d5f7db506df471b0e93d806c40",
+      "download_verified": true
+    },
+    {
+      "name": "v2.4.3-SHA256SUMS.txt",
+      "url": "https://github.com/conghexiangcai/dy-tools/releases/download/v2.4.3/v2.4.3-SHA256SUMS.txt",
+      "bytes": 253,
+      "sha256": "f6f14325d56aecafdff5cfeced4c04dd5b1305bface17012eddaf4eea72f3af1",
+      "download_verified": true
+    }
+  ]
+}

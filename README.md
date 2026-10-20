@@ -1,4 +1,4 @@
-> 下载：[最新 Windows 版](https://github.com/conghexiangcai/dy-tools/releases/latest) · [全部历史版本](docs/versions.md) · [更新记录](CHANGELOG.md) · [发布流程](docs/PUBLISHING.md)
+> 下载：[最新 Windows 版](https://github.com/conghexiangcai/dy-tools/releases/latest) · [全部历史版本](docs/versions.md) · [更新记录](CHANGELOG.md) · [发布流程](docs/PUBLISHING.md) · [归档核验](docs/PUBLICATION-CHECKS-2026-10-20.md)
 
 # 抖音整理箱
 
