@@ -45,7 +45,7 @@ export function parseVideos(data:any,user:User):VideoPage{
 }
 export function newestThree(videos:VideoPage['videos']):string[]{return [...new Map(videos.map(v=>[v.id,v])).values()].sort((a,b)=>b.time-a.time).slice(0,3).map(v=>new Date(v.time*1000).toISOString());}
 export function checkPageResult(result:any){
-  if(result?.error)throw new CollectError(result.error,result.error==='LOGIN'?'抖音登录已失效':result.error==='TIMEOUT'?'请求超时':result.error==='NETWORK'?'网络连接失败':'接口暂时无法读取（'+result.error+'）');
+  if(result?.error)throw new CollectError(result.error,result.error==='LOGIN'?'抖音登录已失效':result.error==='TIMEOUT'?'请求超时':result.error==='NETWORK'?'网络连接失败':result.error==='EMPTY'?'接口返回空白或非数据页面，请查看抖音窗口后点击继续':'接口暂时无法读取（'+result.error+'）');
   if(!result||typeof result!=='object')throw new CollectError('SCHEMA','接口返回格式发生变化');return result;
 }
 export function parseOwner(data:any):User{if(!data?.user?.uid||data.user.uid==='0')throw new CollectError('LOGIN','请先在抖音窗口完成登录');try{return cleanUser(data.user)}catch{throw new CollectError('SCHEMA','本人账号接口未返回完整身份')}}

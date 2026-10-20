@@ -79,12 +79,11 @@ window.matchesAge=function matchesAge(age, settings) {
 </script><script>'use strict';
 const $=id=>document.getElementById(id),fmt=n=>n===null||n===undefined?'未知':Number(n).toLocaleString('zh-CN'),date=s=>s?new Date(s).toLocaleString('zh-CN',{hour12:false}):'尚未更新';
 const defaults=window.filterDefaults,ids=Object.keys(defaults),size=50;
-let rows=[],summary={},byId=new Map(),owner='',selected=new Set(),opened=new Set(),lastBatch=[],filtered=[],page=0,task={},batchBusy=false,loading=false,loadAgain=false,saveChain=Promise.resolve();
+let rows=[],summary={},byId=new Map(),owner='',selected=new Set(),opened=new Set(),lastBatch=[],filtered=[],page=0,task={},batchBusy=false,loading=false,loadAgain=false,saveChain=Promise.resolve(),usageRevision=0;
 const settings=()=>Object.fromEntries(ids.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value]));
 function error(message){$('app-error').textContent=message||'';$('app-error').hidden=!message;}
-function write(delta){const account=owner;saveChain=saveChain.then(()=>desktop.call('review',{owner_uid:account,delta})).catch(e=>error('使用记录保存失败：'+e.message));return saveChain;}
+function write(delta){const account=owner;usageRevision++;saveChain=saveChain.then(()=>desktop.call('review',{owner_uid:account,delta})).catch(e=>error('使用记录保存失败：'+e.message));return saveChain;}
 function setSettings(s){for(const [id,value] of Object.entries({...defaults,...s})){if(!$(id))continue;if($(id).type==='checkbox')$(id).checked=!!value;else $(id).value=String(value)}}
-function classify(r){return window.classifyRow(r,settings())}
 function apply(reset=true){
   try{
     const s=settings();for(const id of ['fans','fans-min','works-limit','works-min','days-min','days-max'])if($(id).validity.badInput)throw Error('阈值请输入非负整数');
@@ -94,7 +93,7 @@ function apply(reset=true){
     const labels=[];for(const [id,label,op] of [['fans','粉丝','<'],['fans-min','粉丝','>'],['works-limit','作品','<'],['works-min','作品','>']])if(String(s[id]).trim()!=='')labels.push(label+' '+op+' '+fmt(Number(s[id])));if(s['following-greater'])labels.push('关注 > 粉丝');
     $('rule').textContent=labels.length?labels.join(s.logic==='or'?'，或 ':'，且 '):'未启用数值条件，显示全部账号。';
     const needle=String(s.search).trim().toLowerCase();
-    filtered=rows.map(r=>({r,age:window.latestAge(r),...classify(r)})).filter(x=>{
+    filtered=rows.map(r=>({r,age:window.latestAge(r),...window.classifyRow(r,s)})).filter(x=>{
       const r=x.r;return (!needle||(r.nickname+' '+r.account).toLowerCase().includes(needle))&&(!s.decision||x.state===s.decision)&&(!s.mutual||(s.mutual==='yes'?r.mutual_follow===true:s.mutual==='no'?r.mutual_follow===false:r.mutual_follow===null))&&(!s['works-state']||(s['works-state']==='known'?r.works_count!==null:r.works_count===null))&&(!s['opened-state']||(s['opened-state']==='opened'?opened.has(r.uid):!opened.has(r.uid)));
     }).filter(x=>window.matchesAge(x.age,s));
     const [field,dir]=String(s.sort).split('_'),key={difference:'following_minus_followers',fans:'follower_count',works:'works_count',following:'following_count'}[field]||'following_minus_followers';
@@ -135,7 +134,7 @@ function showBatch(message){
 }
 async function openBatch(ids){
   if(batchBusy)return;batchBusy=true;updateActions();const account=owner;
-  try{await saveChain;const result=await desktop.call('openProfiles',{owner_uid:account,ids});if(owner!==account)return;result.opened.forEach(id=>opened.add(id));lastBatch=result.opened;showBatch(`本批已请求打开 ${result.opened.length} 个主页；请在抖音主页手动操作。`);apply(false)}catch(e){error(e.message)}finally{batchBusy=false;updateActions()}
+  try{await saveChain;const result=await desktop.call('openProfiles',{owner_uid:account,ids});if(owner!==account)return;usageRevision++;result.opened.forEach(id=>opened.add(id));lastBatch=result.opened;showBatch(`本批已请求打开 ${result.opened.length} 个主页；请在抖音主页手动操作。`);apply(false)}catch(e){error(e.message)}finally{batchBusy=false;updateActions()}
 }
 async function reload(){
   if(loading){loadAgain=true;return;}loading=true;
@@ -143,7 +142,7 @@ async function reload(){
     await saveChain;const data=await desktop.call('snapshot');const changed=owner!==data.summary.account_uid;owner=data.summary.account_uid;summary=data.summary;rows=data.rows;byId=new Map(rows.map(r=>[r.uid,r]));
     if(changed){selected=new Set(data.review.selected);opened=new Set(data.review.opened);lastBatch=data.review.lastBatch;setSettings(data.review.settings);page=0;}
     $('total').textContent=fmt(rows.length);$('data-status').textContent=summary.source_label+' · 本次主页更新 '+fmt(summary.profiles_refreshed)+' / '+fmt(summary.total)+' · 作品数未知 '+fmt(rows.length-summary.works_verified);$('data-status').classList.toggle('warning',!summary.refresh_complete);
-    $('footer').textContent='名单同步：'+date(summary.following_snapshot_at)+' · 指标更新：'+date(summary.profiles_updated_at)+'。打开记录不表示已取关；手动取关后的变化将在下次更新时反映。';apply(false);if(changed)showBatch();
+    $('footer').textContent='名单同步：'+date(summary.following_snapshot_at)+' · 指标更新：'+date(summary.profiles_updated_at)+' · 视频时间更新：'+date(summary.videos_updated_at)+'。打开记录不表示已取关；手动取关后的变化将在下次更新时反映。';apply(false);if(changed)showBatch();
   }catch(e){error(e.message)}finally{loading=false;if(loadAgain){loadAgain=false;setTimeout(reload,100)}}
 }
 function renderTask(t){
@@ -153,9 +152,19 @@ function renderTask(t){
   $('progress').max=Math.max(1,p.total*2);$('progress').value=p.completed+(p.videos||0);$('refresh').disabled=!!task.busy;$('connect').disabled=!!task.busy;$('pause').disabled=!task.busy;$('resume').disabled=!!task.busy||!r||r.status==='completed';$('verified').hidden=!['waiting_verification','cooldown'].includes(r?.status);$('verified').disabled=!!task.busy;
 }
 async function act(method,payload){error('');try{const data=await desktop.call(method,payload);renderTask(await desktop.call('state'));return data}catch(e){error(e.message);return null}}
+async function refreshImportedReview(account){
+  // A native import dialog and IPC response can overlap with new local edits.
+  // Read the merged database after queued edits; never apply the stale import result.
+  while(owner===account){
+    const revision=usageRevision;await saveChain;const data=await desktop.call('snapshot');
+    if(owner!==account||data.summary.account_uid!==account)return;
+    if(revision!==usageRevision)continue;
+    const r=data.review;selected=new Set(r.selected);opened=new Set(r.opened);lastBatch=r.lastBatch;setSettings(r.settings);apply(false);showBatch();return;
+  }
+}
 $('login').onclick=()=>act('login');$('connect').onclick=async()=>{const p=await act('probe');if(p){await reload();error(p.matched?'':`样本接口作品数 ${p.api_works}；主页数 ${p.page_works??'尚未读取'}，请查看样本页面。`)}};
 $('refresh').onclick=()=>act('start');$('pause').onclick=()=>act('pause');$('resume').onclick=()=>act('resume');$('verified').onclick=()=>act('verified');
-$('export').onclick=()=>act('export',{format:$('export-format').value});$('export-review').onclick=async()=>{await saveChain;await act('exportReview')};$('import-review').onclick=async()=>{await saveChain;const r=await act('importReview');if(r){r.selected.forEach(x=>selected.add(x));r.opened.forEach(x=>opened.add(x));lastBatch=r.lastBatch;setSettings(r.settings);apply(false);showBatch()}};
+$('export').onclick=()=>act('export',{format:$('export-format').value});$('export-review').onclick=async()=>{await saveChain;await act('exportReview')};$('import-review').onclick=async()=>{const account=owner;await saveChain;const r=await act('importReview');if(r)try{await refreshImportedReview(account)}catch(e){error('使用记录读取失败：'+e.message)}};
 function selectPage(value){const ids=pageRows().map(x=>x.r.uid);ids.forEach(id=>value?selected.add(id):selected.delete(id));write({select:{ids,value}});render()}
 $('select-page').onclick=()=>selectPage(true);$('unselect-page').onclick=()=>selectPage(false);$('check-page').onchange=()=>selectPage($('check-page').checked);$('clear-selection').onclick=()=>{selected.clear();write({clearSelected:true});render()};
 $('open-next').onclick=()=>openBatch(eligible().slice(0,Number($('batch-size').value)||5));$('reopen').onclick=()=>openBatch(lastBatch.filter(id=>byId.has(id)));$('prev').onclick=()=>{page--;render()};$('next').onclick=()=>{page++;render()};

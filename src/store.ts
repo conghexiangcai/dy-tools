@@ -60,7 +60,9 @@ export class Store {
     const run=a?.active_run?this.run(a.active_run):null;
     const rows:Row[]=run?(this.db.prepare('SELECT m.data member,p.data profile FROM members m LEFT JOIN profiles p ON p.run_id=m.run_id AND p.uid=m.uid WHERE m.run_id=? ORDER BY m.rowid').all(run.id) as any[]).map(x=>x.profile?JSON.parse(x.profile):makeRow(JSON.parse(x.member))):[];
     const decisions=rows.map(r=>classify(r,settingsDefaults).state);
-    return {summary:{version:4,account_uid:owner,account_name:a?.name||'',total:rows.length,source_label:run?.id==='seed-v3'?'导入的历史关注名单':'当前关注名单（最近一次完整同步）',following_snapshot_at:run?.snapshot_at||null,profiles_updated_at:run?.updated_at||null,generated_at:new Date().toISOString(),profiles_refreshed:run?this.progress(run.id).completed:0,refresh_complete:run?.status==='completed',works_verified:rows.filter(r=>r.works_count!==null).length,matches:decisions.filter(x=>x==='match').length,pending:decisions.filter(x=>x==='pending').length,excluded:decisions.filter(x=>x==='excluded').length,mutual_count:rows.filter(r=>r.mutual_follow===true).length},rows,review:this.getReview(owner)};
+    const profileTime=rows.reduce((latest,r)=>Math.max(latest,Date.parse(r.checked_at||'')||0),0);
+    const videoTime=rows.reduce((latest,r)=>Math.max(latest,Date.parse(r.videos_checked_at||'')||0),0);
+    return {summary:{version:4,account_uid:owner,account_name:a?.name||'',total:rows.length,source_label:run?.id==='seed-v3'?'导入的历史关注名单':'当前关注名单（最近一次完整同步）',following_snapshot_at:run?.snapshot_at||null,profiles_updated_at:profileTime?new Date(profileTime).toISOString():run?.id==='seed-v3'?run.updated_at:null,videos_updated_at:videoTime?new Date(videoTime).toISOString():null,generated_at:new Date().toISOString(),profiles_refreshed:run?this.progress(run.id).completed:0,refresh_complete:run?.status==='completed',works_verified:rows.filter(r=>r.works_count!==null).length,matches:decisions.filter(x=>x==='match').length,pending:decisions.filter(x=>x==='pending').length,excluded:decisions.filter(x=>x==='excluded').length,mutual_count:rows.filter(r=>r.mutual_follow===true).length},rows,review:this.getReview(owner)};
   }
   getReview(owner=this.owner()):Review{
     const all=this.db.prepare('SELECT * FROM review WHERE owner_uid=?').all(owner) as any[];
@@ -78,8 +80,9 @@ export class Store {
   }
   importReview(owner:string,data:any){
     if(data.account_uid!==owner)throw Error('使用记录属于另一个抖音账号，请登录对应账号后导入');
-    const r=data.review||data;const before=this.getReview(owner);
-    this.reviewDelta(owner,{select:{ids:cleanIds(r.selected||[]),value:true},opened:cleanIds(r.opened||[]),...(!before.selected.length&&!before.opened.length?{settings:sanitizeSettings(r.settings),lastBatch:cleanIds(r.lastBatch||[])}:{})});
+    const r=data.review||data;
+    const hasUsage=!!(this.db.prepare('SELECT EXISTS(SELECT 1 FROM review WHERE owner_uid=?) OR EXISTS(SELECT 1 FROM review_meta WHERE owner_uid=?) AS used').get(owner,owner) as any).used;
+    this.reviewDelta(owner,{select:{ids:cleanIds(r.selected||[]),value:true},opened:cleanIds(r.opened||[]),...(!hasUsage?{settings:sanitizeSettings(r.settings),lastBatch:cleanIds(r.lastBatch||[])}:{})});
     return this.getReview(owner);
   }
 }

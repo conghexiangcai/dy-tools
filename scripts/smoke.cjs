@@ -41,6 +41,18 @@ async function launch(){
  await p.locator('#opened-state').selectOption('unopened');assert.ok(Number((await p.locator('#match-count').textContent()).replace(/,/g,''))>0);
  await p.locator('#search').fill('不存在的账号搜索条件_smoke');assert.equal(await p.locator('#match-count').textContent(),'0');assert.equal(await p.locator('#selected-count').textContent(),'51');
  const after=await p.evaluate(()=>window.desktop.call('snapshot'));assert.deepEqual(after.review.opened,[before.review.selected[0]]);
+ // Hold the import result after it commits, then edit the UI concurrently.
+ const importedId=before.rows.find(r=>!before.review.selected.includes(r.uid)).uid,removedId=before.review.selected[0];
+ const importFile=path.join(out,'import-review-smoke.json');fs.writeFileSync(importFile,JSON.stringify({account_uid:before.summary.account_uid,review:{selected:[importedId],opened:[importedId],settings:{fans:'999'}}}));
+ await app.evaluate(({dialog},file)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]})},importFile);
+ await p.evaluate(()=>{const original=act;act=async(...args)=>{const value=await original(...args);if(args[0]==='importReview'&&value){window.importCommitted=true;await new Promise(resolve=>{window.releaseImport=resolve})}return value}});
+ await p.locator('#import-review').click();await p.waitForFunction(()=>window.importCommitted);
+ await p.locator('#fans-min').fill('12345');
+ await p.evaluate(async id=>{selected.delete(id);await write({select:{ids:[id],value:false}});apply(false)},removedId);
+ await p.evaluate(()=>window.releaseImport());
+ await p.waitForFunction(({added,removed})=>selected.has(added)&&!selected.has(removed),{added:importedId,removed:removedId});
+ assert.equal(await p.locator('#fans-min').inputValue(),'12345');assert.equal(await p.locator('#selected-count').textContent(),'51');
+ const merged=await p.evaluate(()=>window.desktop.call('snapshot'));assert.ok(!merged.review.selected.includes(removedId));assert.ok(merged.review.selected.includes(importedId));assert.deepEqual(new Set(merged.review.opened),new Set([removedId,importedId]));assert.equal(merged.review.settings['fans-min'],'12345');
  // A remote view has no bridge, Node or local filesystem access; native IPC rejects non-shell senders.
  const prefs=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().map(w=>w.webContents.getLastWebPreferences()).map(p=>({node:p.nodeIntegration,sandbox:p.sandbox,isolation:p.contextIsolation})));
  assert.ok(prefs.every(p=>!p.node&&p.sandbox&&p.isolation));assert.deepEqual(errors,[]);
@@ -48,5 +60,5 @@ async function launch(){
  const offlinePagePromise=app.waitForEvent('window');await app.evaluate(async({BrowserWindow},file)=>{const win=new BrowserWindow({show:false,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});await win.loadFile(file)},offline);
  const exported=await offlinePagePromise;await exported.waitForFunction(()=>document.getElementById('total')?.textContent==='4,278');
  await exported.locator('#fans').fill('');await exported.locator('#works-limit').fill('');await exported.locator('#days-max').fill('10');assert.equal(await exported.locator('#match-count').textContent(),'1');assert.equal(await exported.locator('#rows .video-times div').count(),3);
- await app.close();app=null;console.log('PASS: 快照、严格上下限、时间筛选排序及三行展示、跨页勾选、重启恢复、是否打开、搜索、窗口隔离和离线 HTML。');
+ await app.close();app=null;console.log('PASS: 快照、严格上下限、时间筛选排序及三行展示、跨页勾选、重启恢复、是否打开、搜索、导入时并发编辑、窗口隔离和离线 HTML。');
 })().catch(async e=>{console.error(e);if(app)await app.close().catch(()=>{});process.exitCode=1});

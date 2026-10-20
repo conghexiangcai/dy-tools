@@ -33,7 +33,7 @@ export class Collector {
         this.checkPause();if(e.code==='LOGIN'||e.code==='ACCOUNT_CHANGED')throw e;
         if(await this.transport.challenge(target,attempt===0))throw new CollectError('CAPTCHA','需要手动完成验证码');
         if(e.code==='SCHEMA')throw e;
-        if(!['NETWORK','TIMEOUT','HTTP_500','HTTP_502','HTTP_503','HTTP_504'].includes(e.code)||attempt>=2)throw e;
+        if(!['EMPTY','NETWORK','TIMEOUT','HTTP_500','HTTP_502','HTTP_503','HTTP_504'].includes(e.code)||attempt>=2)throw e;
         await this.delay(attempt===0?3000:10000);
       }
     }
@@ -74,6 +74,6 @@ export class Collector {
   private async block(id:string,e:any){
     if(e.code==='PAUSED'){this.store.update(id,{status:'paused',message:'已暂停，可从断点继续'});return;}
     this.store.update(id,{status:e.code==='CAPTCHA'?'waiting_verification':e.code==='LOGIN'?'waiting_login':'error',message:e instanceof CollectError?e.message:'采集异常，已保存断点；请点击继续重试'});
-    if(['CAPTCHA','LOGIN','ACCOUNT_CHANGED'].includes(e.code))this.transport.show();
+    if(['CAPTCHA','LOGIN','ACCOUNT_CHANGED','EMPTY'].includes(e.code))this.transport.show();
   }
 }

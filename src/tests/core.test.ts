@@ -80,6 +80,13 @@ test('已完成的旧任务升级后只补视频时间，不丢详情或使用�
  const f=fixture(t),s=f.store,r=s.createRun('100',1);s.addPage(r.id,[user('1')],{offset:1,max_time:0,pages:1},true);s.saveRow(r.id,makeRow(user('1'),profile(user('1'),7)));s.update(r.id,{status:'completed'});s.reviewDelta('100',{opened:['1'],select:{ids:['1'],value:true}});
  const upgraded=f.reopen();assert.equal(upgraded.latest()!.phase,'videos');assert.equal(upgraded.latest()!.status,'paused');assert.equal(upgraded.nextUser(r.id),null);assert.equal(upgraded.nextVideos(r.id)?.row.works_count,7);assert.deepEqual(upgraded.getReview().opened,['1']);assert.deepEqual(upgraded.getReview().selected,['1']);
 });
+test('只有筛选编辑或曾取消勾选也算已有使用记录，导入不覆盖设置',t=>{
+ const {store:s}=fixture(t);s.reviewDelta('100',{settings:{fans:'123'}});
+ s.importReview('100',{account_uid:'100',review:{selected:['1'],settings:{fans:'999'}}});assert.equal(s.getReview().settings.fans,'123');assert.deepEqual(s.getReview().selected,['1']);
+ s.activate('200');s.reviewDelta('200',{select:{ids:['2'],value:false}});
+ s.importReview('200',{account_uid:'200',review:{settings:{fans:'999'}}});assert.equal(s.getReview().settings.fans,settingsDefaults.fans);
+ s.activate('300');s.importReview('300',{account_uid:'300',review:{settings:{fans:'999'},lastBatch:['3']}});assert.equal(s.getReview().settings.fans,'999');assert.deepEqual(s.getReview().lastBatch,['3']);
+});
 test('真实分页协议、重复账号去重和正常完成',async t=>{
   const {store:s}=fixture(t),calls:any[]=[];
   const c=new Collector(s,fake({following:async(_owner,offset,time)=>{calls.push([offset,time]);return offset===0?{users:[user('1')],more:true,min_time:123}:{users:[user('1'),user('2')],more:false,min_time:0}}}),()=>{},async()=>{});
@@ -148,6 +155,17 @@ test('验证码暂停、确认后恰好五秒检查，保留已成功账号及�
   delays.length=0;await c.resume(true);await idle(c);assert.deepEqual(delays,[1000,1000,1000,1000,1000]);assert.equal(s.latest()?.status,'waiting_verification');
   captcha=false;delays.length=0;await c.resume(true);await idle(c);assert.deepEqual(delays.slice(0,5),[1000,1000,1000,1000,1000]);assert.deepEqual(calls,['1','2','2']);assert.equal(s.latest()?.status,'completed');assert.deepEqual(s.getReview().opened,['1']);assert.deepEqual(s.getReview().selected,['2']);
 });
+test('空响应先检查验证码，最多额外重试两次后继续成功请求',async t=>{
+  const {store:s}=fixture(t);let calls=0,checks=0;const delays:number[]=[];
+  const c=new Collector(s,fake({videos:async()=>{calls++;if(calls<3)throw new CollectError('EMPTY','空响应');return {videos:[{id:'50',time:1780000000,pinned:false}],more:false,cursor:0,valid:true}},challenge:async()=>{checks++;return false}}),()=>{},async ms=>{delays.push(ms)});
+  await c.start();await idle(c);assert.equal(s.latest()!.status,'completed');assert.equal(calls,4);assert.equal(checks,2);assert.deepEqual(delays.filter(ms=>ms>1000),[3000,10000]);assert.equal(s.progress(s.latest()!.id).videos,2);
+});
+test('持续空响应不跳过账号，展示抖音窗口且保留可恢复的视频断点',async t=>{
+  const {store:s}=fixture(t);let calls=0,shown=0,fail=true;
+  const c=new Collector(s,fake({videos:async()=>{calls++;if(fail)throw new CollectError('EMPTY','空响应');return {videos:[{id:'50',time:1780000000,pinned:false}],more:false,cursor:0,valid:true}},show:()=>{shown++}}),()=>{},async()=>{});
+  await c.start();await idle(c);const id=s.latest()!.id;assert.equal(calls,3);assert.equal(shown,1);assert.equal(s.latest()!.status,'error');assert.equal(s.latest()!.error_uid,'1');assert.equal(s.progress(id).videos,0);assert.equal(s.nextVideos(id)?.user.uid,'1');assert.equal(s.snapshot().rows[0].works_count,20);
+  s.reviewDelta('100',{opened:['1'],select:{ids:['2'],value:true}});fail=false;await c.resume();await idle(c);assert.equal(calls,5);assert.equal(s.latest()!.status,'completed');assert.deepEqual(s.getReview().opened,['1']);assert.deepEqual(s.getReview().selected,['2']);
+});
 test('首次请求遇验证码也能等待五秒后继续',async t=>{
   const {store:s}=fixture(t);let captcha=true;const delays:number[]=[];
   const c=new Collector(s,fake({owner:async()=>{if(captcha)throw new CollectError('CAPTCHA','验证');return user('100')},challenge:async()=>captcha}),()=>{},async ms=>{delays.push(ms)});
@@ -167,4 +185,10 @@ test('导出 HTML 安全嵌入、JSON 不含使用凭据及未知值仍为空',t
   const snap={summary:{account_uid:'100'},rows:[r]};const html=exportText(snap,'html',p);assert.equal(html.includes('<script>alert'),false);assert.ok(html.includes('\\u003c'));
   assert.equal(JSON.parse(exportText(snap,'json',p)).rows[0].works_count,null);
   assert.ok(exportText(snap,'md',p).includes('未知'));
+});
+test('暂停或补视频时间不会冒充指标刚更新',t=>{
+ const {store:s}=fixture(t),r=s.createRun('100',1);s.addPage(r.id,[user('1')],{offset:1,max_time:0,pages:1},true);
+ assert.equal(s.snapshot().summary.profiles_updated_at,null);
+ s.saveRow(r.id,{...makeRow(user('1'),profile(user('1'))),checked_at:'2026-09-01T00:00:00.000Z'});s.saveVideos(r.id,'1',[],'unknown');s.update(r.id,{status:'paused'});
+ const snap=s.snapshot();assert.equal(snap.summary.profiles_updated_at,'2026-09-01T00:00:00.000Z');assert.ok(snap.summary.videos_updated_at);
 });
