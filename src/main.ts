@@ -66,11 +66,18 @@ function broadcast(){
   },250);
 }
 function safeDashboard(){dashboard.show();dashboard.focus();}
+function ensureReviewHost(){
+  if(reviewHost&&!reviewHost.window.isDestroyed())return reviewHost;
+  const preload=path.join(__dirname,'preload.js'),host=new BrowserHost('review',preload,send);
+  reviewHost=host;const ui=new GroupUI(host,store,groups,preload);groupUI=ui;host.onDispose=()=>ui.destroy();
+  host.profileMeta=sec=>{const row=store.profileTarget(sec);if(row)return {nickname:row.nickname,is_private:accountPrivacy(row)};const chat=chats?.profileMeta(sec);if(chat)return chat;const s=fans.state();return [s.anchorPreview?.user,s.target,s.run?.target,...s.anchors,...s.run?.anchors||[]].find(u=>u?.sec_uid===sec)||undefined};
+  return host;
+}
 async function probe(){
   const owner=await transport.owner();store.activate(owner.uid,owner.nickname);broadcast();
   const current=await transport.following(owner,0,0);
   const u:User=current.users.find(u=>u.secret===0)||current.users[0]||owner;const p=await transport.profile(u);
-  const wc=await reviewHost.add('https://www.douyin.com/user/'+u.sec_uid,u.nickname||'连接检查','probe-'+u.uid);reviewHost.show();
+  const host=ensureReviewHost(),wc=await host.add('https://www.douyin.com/user/'+u.sec_uid,u.nickname||'连接检查','probe-'+u.uid);host.show();
   let label='';for(let i=0;i<8;i++){await new Promise(r=>setTimeout(r,1000));label=await wc.executeJavaScript("document.getElementById('semiTabpost')?.innerText||''").catch(()=>'');if(/\d/.test(label))break;}
   const m=label.replace(/,/g,'').match(/作品\s*(\d+)\s*$/);const visible=m?Number(m[1]):null;
   probeResult={account_uid:owner.uid,sample_uid:u.uid,nickname:u.nickname,api_works:p.aweme_count,page_works:visible,matched:visible!==null&&visible===p.aweme_count,checked_at:new Date().toISOString()};
@@ -82,7 +89,7 @@ async function command(method:string,p:any,sender:number){
   if(downloads?.busy&&['start','resume','probe','connect','groupRefresh','orgRefresh','orgGroupsRefresh','orgResume','orgExecute','orgBatch','chatCatalog','chatScan','chatResume','chatResolve','checkinStart','checkinResume','toolsExecute','toolsMedia','toolsMigration'].includes(method))throw Error('请先暂停作品下载');
   if(method.startsWith('org')){if(sender!==dashboard.webContents.id)throw Error('请从分组管家或动态页面操作');return organization.command(method,p)}
   if(organization?.busy&&['start','resume','probe','connect','groupRefresh','verified'].includes(method))throw Error('请先暂停分组或名单变化任务');
-  const host=loginHost.window.webContents.id===sender?loginHost:reviewHost.window.webContents.id===sender?reviewHost:null;
+  const host=loginHost.owns(sender)?loginHost:reviewHost?.owns(sender)?reviewHost:null;
   const dashboardOnly=['start','login','connect','review','openProfiles','export','importReview','exportReview','probe','groupRefresh'];
   if(dashboardOnly.includes(method)&&sender!==dashboard.webContents.id)throw Error('此窗口不支持该操作');
   if(method.startsWith('checkin')){if(sender!==dashboard.webContents.id)throw Error('请从粉丝团打卡操作');return checkins.command(method,p)}
@@ -108,8 +115,8 @@ async function command(method:string,p:any,sender:number){
     case 'openProfiles':{
       if(p.owner_uid!==store.owner())throw Error('页面账号已变更，请稍后重试');const ids=cleanIds(p.ids);if(ids.length>10)throw Error('每批最多打开 10 个主页');
       const snapshot=store.snapshot(),rows=[...snapshot.rows,...snapshot.group_rows];const opened:string[]=[];
-      for(const id of ids){const r=rows.find(r=>r.uid===id);if(!r)continue;await reviewHost.add(r.profile_url,r.nickname,id,{lazy:true,activate:opened.length===0});store.reviewDelta(p.owner_uid,{opened:[id]});opened.push(id);}
-      store.reviewDelta(p.owner_uid,{lastBatch:opened});reviewHost.show();return {opened};
+      for(const id of ids){const r=rows.find(r=>r.uid===id);if(!r)continue;await ensureReviewHost().add(r.profile_url,r.nickname,id,{lazy:true,activate:opened.length===0});store.reviewDelta(p.owner_uid,{opened:[id]});opened.push(id);}
+      store.reviewDelta(p.owner_uid,{lastBatch:opened});if(opened.length)reviewHost.show();return {opened};
     }
     case 'export':{
       const format=p?.format;if(!['html','json','md'].includes(format))throw Error('导出格式无效');
@@ -127,6 +134,7 @@ async function command(method:string,p:any,sender:number){
     case 'browserState':return host?.state();
     case 'browserSelect':host?.select(String(p.id));return true;
     case 'browserClose':host?.closeTab(String(p.id));return true;
+    case 'browserMenu':host?.menu(String(p?.id));return true;
     case 'showDashboard':safeDashboard();return true;
     default:throw Error('不支持的操作');
   }
@@ -137,26 +145,26 @@ if(!app.requestSingleInstanceLock()){app.quit()}else{
     protocol.handle('app',req=>{const url=new URL(req.url);const allowed=new Set(['session-status.js','index.html','style.css','renderer.js','rules.js','browser.html','browser.js','group-button.html','profile-private.html','group-dialog.html','group.css','group.js','fanclub.html','fanclub.css','fanclub.js','toolbox.html','toolbox.css','toolbox.js','chat.html','chat.css','chat.js','checkin.html','checkin.css','checkin.js','organization.html','organization.css','organization.js','download.html','download.css','download.js']);const name=url.pathname.slice(1);if(url.hostname!=='local'||!allowed.has(name))return new Response('Not found',{status:404});return net.fetch(pathToFileURL(path.join(publicDir,name)).href);});
     const userDir=app.getPath('userData');mkdirSync(userDir,{recursive:true});store=new Store(path.join(userDir,'review.sqlite'));
     const preload=path.join(__dirname,'preload.js');
-    loginHost=new BrowserHost('collector',preload,send);reviewHost=new BrowserHost('review',preload,send);loginState=new LoginState(broadcast,user=>{if(store.owner()&&store.owner()!==user.uid)pauseForIdentity();store.activate(user.uid,user.nickname)});transport=new DouyinTransport(loginHost,loginState);collector=new Collector(store,transport,broadcast,undefined,collectorTick);
+    loginHost=new BrowserHost('collector',preload,send);loginState=new LoginState(broadcast,user=>{if(store.owner()&&store.owner()!==user.uid)pauseForIdentity();store.activate(user.uid,user.nickname)});transport=new DouyinTransport(loginHost,loginState);collector=new Collector(store,transport,broadcast,undefined,collectorTick);
     groups=new GroupService(store,new DouyinGroupWire(session.fromPartition('persist:douyin-login'),transport),broadcast);
-    groupUI=new GroupUI(reviewHost,store,groups,preload);loginHost.onContextChange=()=>groupUI.cancel();
+    loginHost.onContextChange=()=>groupUI?.cancel();
     fans=new FanService(new FanStore(store.db),new DouyinFanWire(session.fromPartition('persist:douyin-login'),transport),()=>store.owner(),()=>{fanUI?.notify();if(loginHost)send(loginHost);if(reviewHost)send(reviewHost)});
-    reviewHost.profileMeta=sec=>{const row=store.profileTarget(sec);if(row)return {nickname:row.nickname,is_private:accountPrivacy(row)};const chat=chats?.profileMeta(sec);if(chat)return chat;const s=fans.state();return [s.anchorPreview?.user,s.target,s.run?.target,...s.anchors,...s.run?.anchors||[]].find(u=>u?.sec_uid===sec)||undefined};
+    ensureReviewHost();
     const stopCollector=async()=>{if(downloads?.busy)throw Error('请先暂停作品下载');if(organization?.busy)throw Error('请先暂停分组或名单变化任务');if(checkins?.busy)throw Error('请先暂停粉丝团打卡');if(chats?.busy)throw Error('请先暂停群成员任务');if(actions?.busy||toolUI?.busy)throw Error('请先暂停工具箱任务');groupSyncQueued=false;if(groups.busy)throw Error('分组同步正在进行，请稍后开始查询');if(collector.busy){collector.pause();for(let i=0;i<300&&collector.busy;i++)await new Promise(r=>setTimeout(r,100));if(collector.busy)throw Error('正在保存采集断点，请稍后重试')}};
-    fanUI=new FanUI(fans,preload,stopCollector,async()=>{await transport.ensure();transport.show()},async()=>{const owner=await transport.owner();store.activate(owner.uid,owner.nickname);broadcast()},async(uid,sec,name)=>{await reviewHost.add('https://www.douyin.com/user/'+sec,name,'fan-'+uid);reviewHost.show()},async()=>{await dashboardNavigation.load(appURL+'toolbox.html?tool=home');safeDashboard()});
+    fanUI=new FanUI(fans,preload,stopCollector,async()=>{await transport.ensure();transport.show()},async()=>{const owner=await transport.owner();store.activate(owner.uid,owner.nickname);broadcast()},async(uid,sec,name)=>{const host=ensureReviewHost();await host.add('https://www.douyin.com/user/'+sec,name,'fan-'+uid);host.show()},async()=>{await dashboardNavigation.load(appURL+'toolbox.html?tool=home');safeDashboard()});
     loginHost.onChange=()=>{downloads?.pause();organization?.pause();collector.pause();toolUI.pause();chats?.pause();checkins?.pause()};
     const wire=new DouyinActionWire(session.fromPartition('persist:douyin-login'),transport);actions=new ActionService(store.tools,wire,()=>store.owner(),broadcast);
     toolUI=new ToolUI(store,actions,wire,()=>dashboard,async()=>{if(downloads?.busy)throw Error('请先暂停作品下载');if(organization?.busy)throw Error('请先暂停分组或名单变化任务');if(checkins?.busy)throw Error('请先暂停粉丝团打卡');if(chats?.busy)throw Error('请先暂停群成员任务');groupSyncQueued=false;if(groups.busy)throw Error('请等待分组同步完成');if(fans.busy)fans.pause();if(collector.busy)collector.pause();for(let n=0;n<300&&(fans.busy||collector.busy);n++)await new Promise(r=>setTimeout(r,100));if(fans.busy||collector.busy)throw Error('正在保存其他任务断点，请稍后重试')},broadcast);
-    chats=new ChatUI(new ChatService(new ChatStore(store.db),new DouyinChatWire(transport),()=>store.owner(),broadcast),store,new DouyinFanWire(session.fromPartition('persist:douyin-login'),transport),()=>dashboard,async()=>{if(downloads?.busy)throw Error('请先暂停作品下载');if(organization?.busy||checkins?.busy||actions.busy||toolUI.busy||groups.busy)throw Error('请先暂停其他工具任务');groupSyncQueued=false;fans.pause();collector.pause();for(let n=0;n<300&&(fans.busy||collector.busy);n++)await new Promise(r=>setTimeout(r,100));if(fans.busy||collector.busy)throw Error('正在保存其他任务断点，请稍后重试')},broadcast,async u=>{await reviewHost.add(u.profile_url,u.nickname,'chat-'+u.uid);reviewHost.show()});
+    chats=new ChatUI(new ChatService(new ChatStore(store.db),new DouyinChatWire(transport),()=>store.owner(),broadcast),store,new DouyinFanWire(session.fromPartition('persist:douyin-login'),transport),()=>dashboard,async()=>{if(downloads?.busy)throw Error('请先暂停作品下载');if(organization?.busy||checkins?.busy||actions.busy||toolUI.busy||groups.busy)throw Error('请先暂停其他工具任务');groupSyncQueued=false;fans.pause();collector.pause();for(let n=0;n<300&&(fans.busy||collector.busy);n++)await new Promise(r=>setTimeout(r,100));if(fans.busy||collector.busy)throw Error('正在保存其他任务断点，请稍后重试')},broadcast,async u=>{const host=ensureReviewHost();await host.add(u.profile_url,u.nickname,'chat-'+u.uid);host.show()});
     checkins=new CheckinUI(userDir,session.fromPartition('persist:douyin-login'),()=>store.owner(),()=>dashboard,async()=>{if(downloads?.busy)throw Error('请先暂停作品下载');if(organization?.busy||actions.busy||toolUI.busy||chats.busy||groups.busy)throw Error('请先暂停其他工具任务');groupSyncQueued=false;fans.pause();collector.pause();for(let n=0;n<300&&(fans.busy||collector.busy);n++)await new Promise(r=>setTimeout(r,100));if(fans.busy||collector.busy)throw Error('正在保存其他任务断点，请稍后重试')},broadcast,async code=>{safeDashboard();await transport.ensure();if(code==='CAPTCHA')await transport.challenge(undefined,true);transport.show()});
     const organizationIdle=async()=>{if(downloads?.busy)throw Error('请先暂停作品下载');if(organization?.busy||checkins?.busy||chats.busy||actions.busy||toolUI.busy||groups.busy)throw Error('请先暂停其他任务或等待请求结束');groupSyncQueued=false;collector.pause();fans.pause();for(let n=0;n<300&&(collector.busy||fans.busy);n++)await new Promise(r=>setTimeout(r,100));if(collector.busy||fans.busy)throw Error('正在保存其他任务断点，请稍后重试')};
-    organization=new OrganizationUI(store,new ActivityService(new ActivityStore(store),transport,()=>store.owner(),broadcast),new GroupManager(store,new DouyinGroupWire(session.fromPartition('persist:douyin-login'),transport),broadcast),groups,chats,()=>dashboard,organizationIdle,broadcast,async(uid,sec,name)=>{await reviewHost.add('https://www.douyin.com/user/'+sec,name,'org-'+uid);reviewHost.show()});
+    organization=new OrganizationUI(store,new ActivityService(new ActivityStore(store),transport,()=>store.owner(),broadcast),new GroupManager(store,new DouyinGroupWire(session.fromPartition('persist:douyin-login'),transport),broadcast),groups,chats,()=>dashboard,organizationIdle,broadcast,async(uid,sec,name)=>{const host=ensureReviewHost();await host.add('https://www.douyin.com/user/'+sec,name,'org-'+uid);host.show()});
     downloads=new DownloadUI(new DownloadService(new DownloadStore(store.db),new DouyinDownloadWire(session.fromPartition('persist:douyin-login'),transport),()=>store.owner(),broadcast),()=>store.owner(),()=>dashboard,async()=>{if(organization?.busy||checkins?.busy||chats?.busy||actions?.busy||toolUI?.busy||groups?.busy)throw Error('请先暂停其他任务或等待分组请求完成');groupSyncQueued=false;collector.pause();fans.pause();for(let n=0;n<300&&(collector.busy||fans.busy);n++)await new Promise(r=>setTimeout(r,100));if(collector.busy||fans.busy)throw Error('正在保存采集断点，请稍后重试')},broadcast);
     dashboard=new BrowserWindow({width:1500,height:960,minWidth:960,minHeight:640,show:false,title:'抖音整理箱',autoHideMenuBar:true,webPreferences:{preload,contextIsolation:true,nodeIntegration:false,sandbox:true}});
     dashboardNavigation=new LocalNavigation(url=>dashboard.loadURL(url));
     dashboard.webContents.setWindowOpenHandler(()=>({action:'deny'}));dashboard.webContents.on('will-navigate',e=>e.preventDefault());
     ipcMain.handle('desktop:command',async(event,method,p)=>{
-      if(![dashboard.webContents.id,loginHost.window.webContents.id,reviewHost.window.webContents.id].includes(event.sender.id)&&!groupUI.owns(event.sender.id)&&!fanUI.owns(event.sender.id)||event.senderFrame!==event.sender.mainFrame||!event.senderFrame.url.startsWith(appURL))return {ok:false,error:'不允许的调用来源'};
+      if(event.sender.id!==dashboard.webContents.id&&!loginHost.owns(event.sender.id)&&!reviewHost?.owns(event.sender.id)&&!groupUI.owns(event.sender.id)&&!fanUI.owns(event.sender.id)||event.senderFrame!==event.sender.mainFrame||!event.senderFrame.url.startsWith(appURL))return {ok:false,error:'不允许的调用来源'};
       try{if(method==='sessionState')return {ok:true,data:loginState.state()};if((downloads?.busy||organization?.busy||actions?.busy||toolUI?.busy||chats?.busy||checkins?.busy)&&(groupUI.owns(event.sender.id)||fanUI.owns(event.sender.id))&&!['fanState','groupDialogState','groupCancel','fanHome'].includes(method))throw Error('请先暂停批量任务');return {ok:true,data:await (fanUI.owns(event.sender.id)?fanUI.command(method,p):groupUI.owns(event.sender.id)?groupUI.command(method,p,event.sender.id):command(method,p,event.sender.id))}}catch(e:any){return {ok:false,error:typeof e?.message==='string'?e.message:'操作失败，请重试'}}
     });
     session.fromPartition('persist:douyin-login').cookies.on('changed',(_e,cookie)=>{if(/(^|\.)douyin\.com$/.test(cookie.domain||'')&&/^(sessionid|sessionid_ss|sid_tt|uid_tt|uid_tt_ss)$/.test(cookie.name)){downloads?.pause();loginState.invalidate();scheduleLoginCheck()}});

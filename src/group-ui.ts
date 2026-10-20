@@ -16,22 +16,22 @@ export function inspectFollowAnchor(){
   return {url:location.href,account:info.match(/抖音号[：:]\s*([^\s]+)/)?.[1]||'',nickname:info.split('\n')[0]?.trim()||'',x:r.x,y:r.y,width:r.width,height:r.height};
 }
 export class GroupUI {
-  overlay:WebContentsView;privacyOverlay:WebContentsView;dialogWindow:BrowserWindow|null=null;private timer:NodeJS.Timeout;private polling=false;private anchor:{row:Row;owner:string;revision:number;url:string}|null=null;private loaded=false;private privacyLoaded=false;
+  overlay:WebContentsView;privacyOverlay:WebContentsView;dialogWindow:BrowserWindow|null=null;private timer:NodeJS.Timeout;private polling=false;private anchor:{row:Row;owner:string;revision:number;url:string}|null=null;private loaded=false;private privacyLoaded=false;private destroyed=false;
   constructor(private host:BrowserHost,private store:Store,private groups:GroupService,private preload:string){
     this.overlay=new WebContentsView({webPreferences:{preload,contextIsolation:true,nodeIntegration:false,sandbox:true}});this.overlay.setVisible(false);this.overlay.setBackgroundColor('#00000000');
-    this.host.window.contentView.addChildView(this.overlay);this.overlay.webContents.loadURL(appURL+'group-button.html');
+    this.host.window.contentView.addChildView(this.overlay);void this.overlay.webContents.loadURL(appURL+'group-button.html').catch(()=>{});
     this.overlay.webContents.on('did-finish-load',()=>{this.loaded=true});this.overlay.webContents.setWindowOpenHandler(()=>({action:'deny'}));this.overlay.webContents.on('will-navigate',e=>e.preventDefault());
     // Separate, tightly bounded local view: it never covers the remote follow button.
     this.privacyOverlay=new WebContentsView({webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});this.privacyOverlay.setVisible(false);this.privacyOverlay.setBackgroundColor('#00000000');
-    this.host.window.contentView.addChildView(this.privacyOverlay);this.privacyOverlay.webContents.loadURL(appURL+'profile-private.html');
+    this.host.window.contentView.addChildView(this.privacyOverlay);void this.privacyOverlay.webContents.loadURL(appURL+'profile-private.html').catch(()=>{});
     this.privacyOverlay.webContents.on('did-finish-load',()=>{this.privacyLoaded=true});this.privacyOverlay.webContents.setWindowOpenHandler(()=>({action:'deny'}));this.privacyOverlay.webContents.on('will-navigate',e=>e.preventDefault());
     this.host.onContextChange=()=>this.cancel();this.host.window.on('hide',()=>this.hideOverlays());this.timer=setInterval(()=>void this.tick(),200);
   }
-  owns(id:number){return id===this.overlay.webContents.id||id===this.dialogWindow?.webContents.id}
-  private hideOverlays(){this.overlay.setVisible(false);this.privacyOverlay.setVisible(false)}
-  cancel(){this.anchor=null;this.hideOverlays();this.groups.cancel();if(this.dialogWindow&&!this.dialogWindow.isDestroyed())this.dialogWindow.close();this.dialogWindow=null}
+  owns(id:number){return !this.destroyed&&(!this.overlay.webContents.isDestroyed()&&id===this.overlay.webContents.id||!!this.dialogWindow&&!this.dialogWindow.isDestroyed()&&id===this.dialogWindow.webContents.id)}
+  private hideOverlays(){if(this.destroyed)return;this.overlay.setVisible(false);this.privacyOverlay.setVisible(false)}
+  cancel(){if(this.destroyed)return;this.anchor=null;this.hideOverlays();this.groups.cancel();if(this.dialogWindow&&!this.dialogWindow.isDestroyed())this.dialogWindow.close();this.dialogWindow=null}
   private async tick(){
-    if(this.polling||!this.loaded||!this.host.window.isVisible())return;this.polling=true;
+    if(this.destroyed||this.host.window.isDestroyed()||this.polling||!this.loaded||!this.host.window.isVisible())return;this.polling=true;
     try{
       const wc=this.host.current,owner=this.store.owner(),revision=this.host.revision;
       if(!wc||wc.isDestroyed()||wc.isLoadingMainFrame()){this.hideOverlays();return}
@@ -39,7 +39,7 @@ export class GroupUI {
       const sec=url.pathname.match(/^\/user\/([\w-]+)\/?$/)?.[1],row=sec?this.store.profileTarget(sec):undefined,profile=sec?this.host.profileMeta(sec):undefined;
       if(!row&&!profile){this.cancel();return}
       const a=await wc.executeJavaScript('('+inspectFollowAnchor.toString()+')()').catch(()=>null);
-      if(wc!==this.host.current||revision!==this.host.revision||owner!==this.store.owner())return;
+      if(this.destroyed||this.host.window.isDestroyed()||wc.isDestroyed()||wc!==this.host.current||revision!==this.host.revision||owner!==this.store.owner())return;
       if(!a||a.url!==wc.getURL()||(row&&(row.account!==row.uid?a.account!==row.account:a.nickname!==row.nickname))){this.hideOverlays();this.anchor=null;return}
       if(this.groups.dialog&&this.groups.dialog.owner!==owner){this.cancel();return}
       const zoom=wc.getZoomFactor(),badge={x:Math.round(a.x*zoom)-124,y:92+Math.round((a.y+a.height/2)*zoom)-15,width:112,height:30};
@@ -52,6 +52,7 @@ export class GroupUI {
   notify(){if(this.dialogWindow&&!this.dialogWindow.isDestroyed())this.dialogWindow.webContents.send('desktop:change',{groups:this.groups.state(),groupDialog:this.safeDialog()})}
   private safeDialog(){try{return this.groups.dialogState()}catch{return null}}
   async command(method:string,p:any,sender:number){
+    if(this.destroyed)throw Error('主页窗口已关闭');
     if(sender===this.overlay.webContents.id){if(method!=='groupOpen')throw Error('按钮不支持此操作');return this.open()}
     if(sender!==this.dialogWindow?.webContents.id)throw Error('分组窗口已关闭');
     if(method==='groupDialogState')return {dialog:this.safeDialog(),state:this.groups.state()};
@@ -67,8 +68,8 @@ export class GroupUI {
     const win=new BrowserWindow({parent:this.host.window,width:450,height:590,resizable:true,minWidth:380,minHeight:400,show:false,autoHideMenuBar:true,title:'设置抖音关注分组',webPreferences:{preload:this.preload,contextIsolation:true,nodeIntegration:false,sandbox:true}});this.dialogWindow=win;
     win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',e=>e.preventDefault());
     win.on('closed',()=>{if(this.dialogWindow===win){this.dialogWindow=null;this.groups.cancel()}});
-    await win.loadURL(appURL+'group-dialog.html');if(win.isDestroyed()||!valid())return;win.show();
+    try{await win.loadURL(appURL+'group-dialog.html')}catch(e){if(this.destroyed||win.isDestroyed())return;throw e}if(win.isDestroyed()||!valid())return;win.show();
     try{await this.groups.open({uid:binding.row.uid,sec_uid:binding.row.sec_uid,nickname:binding.row.nickname},valid)}catch(e:any){if(!win.isDestroyed())win.webContents.send('desktop:change',{groupError:e.message})}this.notify();
   }
-  destroy(){clearInterval(this.timer);this.cancel();this.overlay.webContents.close();this.privacyOverlay.webContents.close()}
+  destroy(){if(this.destroyed)return;clearInterval(this.timer);this.cancel();this.destroyed=true;for(const view of [this.overlay,this.privacyOverlay]){if(!this.host.window.isDestroyed())this.host.window.contentView.removeChildView(view);if(!view.webContents.isDestroyed())view.webContents.close({waitForBeforeUnload:false})}}
 }

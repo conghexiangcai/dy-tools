@@ -1,5 +1,6 @@
-import {BrowserWindow,WebContentsView,session,WebContents} from 'electron';
+import {BrowserWindow,WebContentsView,session,WebContents,Menu,clipboard} from 'electron';
 import path from 'node:path';
+import {randomUUID} from 'node:crypto';
 import {Transport,SELF,FOLLOWING,PROFILE,POSTS,baseParams,pageRequest,checkPageResult,parseOwner,parseFollowing,parseFollowers,parseVideos,CollectError} from './transport';
 import {User,cleanUser} from './domain';
 import {parseAccountSearch} from './account-search';
@@ -9,23 +10,26 @@ const delay=(ms:number)=>new Promise(r=>setTimeout(r,ms));
 export const appURL='app://local/';
 export function allowedRemote(url:string){try{const u=new URL(url);return u.protocol==='https:'&&['douyin.com','iesdouyin.com','bytedance.com','snssdk.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h));}catch{return false}}
 export class BrowserHost {
-  window:BrowserWindow;tabs:{id:string;title:string;view:WebContentsView;pending?:string}[]=[];active='';onChange=()=>{};onContextChange=()=>{};revision=0;
+  window:BrowserWindow;tabs:{id:string;title:string;url:string;view:WebContentsView;pending?:string}[]=[];active='';onChange=()=>{};onContextChange=()=>{};onDispose=()=>{};revision=0;private disposed=false;
   profileMeta:(sec:string)=>{nickname:string;is_private?:boolean|null}|undefined=()=>undefined;
   contextChanged(){this.revision++;this.onContextChange()}
   constructor(public mode:'collector'|'review',preload:string,private notify:(host:BrowserHost)=>void){
     this.window=new BrowserWindow({width:1160,height:820,minWidth:700,minHeight:500,show:false,title:mode==='collector'?'抖音登录与验证':'手动查看主页',autoHideMenuBar:true,webPreferences:{preload,contextIsolation:true,nodeIntegration:false,sandbox:true}});
-    this.window.loadURL(appURL+'browser.html?mode='+mode);this.window.on('resize',()=>this.resize());
-    this.window.on('close',e=>{if(!(this.window as any).__quitting){e.preventDefault();if(this.mode==='review')this.closeAll();this.window.hide();}});
+    void this.window.loadURL(appURL+'browser.html?mode='+mode).catch(()=>{});this.window.on('resize',()=>this.resize());
+    this.window.on('close',e=>{if(this.mode==='collector'&&!(this.window as any).__quitting){e.preventDefault();this.window.hide();}else this.release();});
+    this.window.on('closed',()=>this.release());
     this.window.on('hide',()=>this.audio());this.window.on('show',()=>this.audio());
     this.window.webContents.on('did-finish-load',()=>this.notify(this));this.window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
     this.window.webContents.on('will-navigate',e=>e.preventDefault());
   }
   get current(){return this.tabs.find(t=>t.id===this.active)?.view.webContents;}
+  owns(sender:number){return !this.window.isDestroyed()&&this.window.webContents.id===sender;}
   async add(url:string,title:string,id:string,options:{lazy?:boolean;activate?:boolean}={}){
+    if(this.disposed||this.window.isDestroyed())throw Error('主页窗口已关闭，请重新打开');
     if(!allowedRemote(url))throw Error('只支持打开抖音网页');const existing=this.tabs.find(t=>t.id===id);
     if(existing){if(options.activate!==false)this.select(id);return existing.view.webContents;}
     const view=new WebContentsView({webPreferences:{partition:'persist:douyin-login',contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:this.mode==='review'}});
-    const tab={id,title,view,pending:options.lazy?url:undefined};this.tabs.push(tab);this.window.contentView.addChildView(view);
+    const tab={id,title,url,view,pending:options.lazy?url:undefined};this.tabs.push(tab);this.window.contentView.addChildView(view);
     const wc=view.webContents;protectNavigation(wc);wc.setWindowOpenHandler(({url})=>{if(allowedRemote(url))void this.add(url,'抖音页面',String(Date.now())).catch(()=>{});return {action:'deny'};});
     wc.on('did-start-navigation',(_e,_url,_inPlace,isMain)=>{if(isMain){this.contextChanged();this.notify(this)}});
     wc.on('did-navigate-in-page',(_e,_url,isMain)=>{if(isMain){this.contextChanged();this.notify(this)}});
@@ -39,13 +43,41 @@ export class BrowserHost {
     return wc;
   }
   select(id:string){const t=this.tabs.find(t=>t.id===id);if(!t)return;if(this.active!==id)this.contextChanged();this.active=id;this.resize();if(t.pending){const url=t.pending;t.pending=undefined;void t.view.webContents.loadURL(url).catch(()=>{});}this.notify(this);}
-  private dispose(t:BrowserHost['tabs'][number]){const wc=t.view.webContents;this.window.contentView.removeChildView(t.view);if(!wc.isDestroyed()){wc.setAudioMuted(true);wc.stop();wc.close({waitForBeforeUnload:false});}}
-  closeTab(id:string){if(this.mode==='collector')return;const t=this.tabs.find(t=>t.id===id);if(!t)return;this.contextChanged();this.tabs=this.tabs.filter(x=>x!==t);this.dispose(t);if(this.active===id){this.active='';if(this.tabs.length)this.select(this.tabs.at(-1)!.id)}this.resize();this.notify(this);if(!this.tabs.length)this.window.hide();}
-  closeAll(){if(this.mode!=='review')return;this.contextChanged();const tabs=this.tabs;this.tabs=[];this.active='';for(const t of tabs)this.dispose(t);this.notify(this);}
-  private audio(){for(const t of this.tabs)if(!t.view.webContents.isDestroyed())t.view.webContents.setAudioMuted(!this.window.isVisible()||t.id!==this.active);}
-  resize(){const [width,height]=this.window.getContentSize();for(const t of this.tabs){t.view.setVisible(t.id===this.active);t.view.setBounds({x:0,y:92,width,height:Math.max(0,height-92)});}this.audio();}
-  show(){this.window.show();this.window.focus();}
-  destroy(){(this.window as any).__quitting=true;for(const t of this.tabs)this.dispose(t);this.tabs=[];this.window.destroy();}
+  private dispose(t:BrowserHost['tabs'][number]){const wc=t.view.webContents;if(!this.window.isDestroyed())this.window.contentView.removeChildView(t.view);if(!wc.isDestroyed()){wc.setAudioMuted(true);wc.stop();wc.close({waitForBeforeUnload:false});}}
+  private closeTabs(ids:string[]){
+    if(this.mode!=='review'||this.disposed)return;const remove=new Set(ids),old=this.tabs,index=old.findIndex(t=>t.id===this.active),closing=old.filter(t=>remove.has(t.id));if(!closing.length)return;
+    const remaining=old.filter(t=>!remove.has(t.id));if(!remaining.length){this.destroy();return}
+    this.contextChanged();this.tabs=remaining;for(const t of closing)this.dispose(t);
+    // Choose one surviving neighbour before loading anything; bulk close must not load discarded tabs.
+    const next=remaining.find(t=>t.id===this.active)||old.slice(index+1).find(t=>!remove.has(t.id))||remaining.at(-1)!;
+    this.select(next.id);
+  }
+  closeTab(id:string){this.closeTabs([id]);}
+  closeAll(){if(this.mode==='review')this.destroy();}
+  private tabURL(id:string){const t=this.tabs.find(t=>t.id===id);if(!t||t.view.webContents.isDestroyed())return '';const current=t.view.webContents.getURL();return allowedRemote(current)?current:t.url;}
+  private reloadTab(id:string){const t=this.tabs.find(t=>t.id===id),url=this.tabURL(id);if(!t||!url)return;this.contextChanged();t.pending=undefined;void t.view.webContents.loadURL(url).catch(()=>{});}
+  private async duplicateTab(id:string){const t=this.tabs.find(t=>t.id===id),url=this.tabURL(id);if(!t||!url)return;const copyId='copy-'+randomUUID();await this.add(url,t.title,copyId,{lazy:true});if(this.disposed)return;const at=this.tabs.findIndex(t=>t.id===id),copy=this.tabs.find(t=>t.id===copyId);if(at>=0&&copy){this.tabs=this.tabs.filter(t=>t!==copy);this.tabs.splice(at+1,0,copy);this.notify(this)}}
+  menu(id:string){
+    if(this.mode!=='review'||this.disposed)return;const index=this.tabs.findIndex(t=>t.id===id);if(index<0)return;
+    const run=(fn:()=>void)=>()=>{if(!this.disposed&&this.tabs.some(t=>t.id===id))fn()};
+    const close=(side:'left'|'right'|'other')=>{const at=this.tabs.findIndex(t=>t.id===id);this.closeTabs(this.tabs.filter((t,i)=>side==='left'?i<at:side==='right'?i>at:t.id!==id).map(t=>t.id))};
+    Menu.buildFromTemplate([
+      {label:'重新加载',click:run(()=>this.reloadTab(id))},
+      {label:'复制标签页',click:run(()=>{void this.duplicateTab(id).catch(()=>{})})},
+      {label:'复制页面链接',click:run(()=>{const url=this.tabURL(id);if(url)clipboard.writeText(url)})},
+      {type:'separator'},
+      {label:'关闭当前标签',click:run(()=>this.closeTab(id))},
+      {label:'关闭其他标签',enabled:this.tabs.length>1,click:run(()=>close('other'))},
+      {label:'关闭左侧标签',enabled:index>0,click:run(()=>close('left'))},
+      {label:'关闭右侧标签',enabled:index<this.tabs.length-1,click:run(()=>close('right'))},
+      {label:'关闭全部标签',click:run(()=>this.closeAll())}
+    ]).popup({window:this.window});
+  }
+  private audio(){if(this.window.isDestroyed())return;for(const t of this.tabs)if(!t.view.webContents.isDestroyed())t.view.webContents.setAudioMuted(!this.window.isVisible()||t.id!==this.active);}
+  resize(){if(this.disposed||this.window.isDestroyed())return;const [width,height]=this.window.getContentSize();for(const t of this.tabs){t.view.setVisible(t.id===this.active);t.view.setBounds({x:0,y:92,width,height:Math.max(0,height-92)});}this.audio();}
+  show(){if(!this.disposed&&!this.window.isDestroyed()){this.window.show();this.window.focus();}}
+  private release(){if(this.disposed)return;this.disposed=true;this.contextChanged();this.onDispose();const tabs=this.tabs;this.tabs=[];this.active='';for(const t of tabs)this.dispose(t);}
+  destroy(){this.release();if(!this.window.isDestroyed()){(this.window as any).__quitting=true;this.window.destroy();}}
   state(){let profile:ReturnType<BrowserHost['profileMeta']>;try{const url=new URL(this.current?.getURL()||'');if(url.origin==='https://www.douyin.com'){const sec=url.pathname.match(/^\/user\/([\w-]+)\/?$/)?.[1];if(sec&&!this.current?.isLoadingMainFrame())profile=this.profileMeta(sec)}}catch{}return {mode:this.mode,active:this.active,tabs:this.tabs.map(t=>({id:t.id,title:t.title})),profile};}
 }
 export class DouyinTransport implements Transport {
