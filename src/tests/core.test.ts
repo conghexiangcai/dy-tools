@@ -62,7 +62,7 @@ test('隐私状态独立于作品数，旧数据兼容不会覆盖使用记录',
 });
 test('接口结构和分页游标校验',()=>{
   assert.throws(()=>parseOwner({user:{uid:'0'}}),/登录/);
-  assert.throws(()=>parseFollowing({followings:[],has_more:1,min_time:2}),/游标/);
+  assert.throws(()=>parseFollowing({followings:[],has_more:1,min_time:2}),(e:any)=>e.code==='EMPTY');
   assert.throws(()=>parseFollowing({followers:[user('1')],has_more:0}),/格式/);
   assert.deepEqual(parseFollowing({followings:[user('1')],has_more:1,min_time:123}).min_time,123);
 });
@@ -170,15 +170,15 @@ test('验证码暂停、确认后恰好五秒检查，保留已成功账号及�
   delays.length=0;await c.resume(true);await idle(c);assert.deepEqual(delays,[1000,1000,1000,1000,1000]);assert.equal(s.latest()?.status,'waiting_verification');
   captcha=false;delays.length=0;await c.resume(true);await idle(c);assert.deepEqual(delays.slice(0,5),[1000,1000,1000,1000,1000]);assert.deepEqual(calls,['1','2','2']);assert.equal(s.latest()?.status,'completed');assert.deepEqual(s.getReview().opened,['1']);assert.deepEqual(s.getReview().selected,['2']);
 });
-test('空响应先检查验证码，最多额外重试两次后继续成功请求',async t=>{
+test('空响应检查验证码，等待三十和六十秒后自动继续成功请求',async t=>{
   const {store:s}=fixture(t);let calls=0,checks=0;const delays:number[]=[];
-  const c=new Collector(s,fake({videos:async()=>{calls++;if(calls<3)throw new CollectError('EMPTY','空响应');return {videos:[{id:'50',time:1780000000,pinned:false}],more:false,cursor:0,valid:true}},challenge:async()=>{checks++;return false}}),()=>{},async ms=>{delays.push(ms)});
-  await c.start();await idle(c);assert.equal(s.latest()!.status,'completed');assert.equal(calls,4);assert.equal(checks,2);assert.deepEqual(delays.filter(ms=>ms>1000),[3000,10000]);assert.equal(s.progress(s.latest()!.id).videos,2);
+  const c=new Collector(s,fake({videos:async()=>{calls++;if(calls<3)throw new CollectError('EMPTY','空响应');return {videos:[{id:'50',time:1780000000,pinned:false}],more:false,cursor:0,valid:true}},challenge:async()=>{checks++;return false}}),()=>{},async ms=>{if(c.state().retry)delays.push(ms)});
+  await c.start();await idle(c);assert.equal(s.latest()!.status,'completed');assert.equal(calls,4);assert.equal(checks,4);assert.equal(delays.length,90);assert.ok(delays.every(ms=>ms===1000));assert.equal(s.progress(s.latest()!.id).videos,2);
 });
-test('持续空响应不跳过账号，展示抖音窗口且保留可恢复的视频断点',async t=>{
-  const {store:s}=fixture(t);let calls=0,shown=0,fail=true;
-  const c=new Collector(s,fake({videos:async()=>{calls++;if(fail)throw new CollectError('EMPTY','空响应');return {videos:[{id:'50',time:1780000000,pinned:false}],more:false,cursor:0,valid:true}},show:()=>{shown++}}),()=>{},async()=>{});
-  await c.start();await idle(c);const id=s.latest()!.id;assert.equal(calls,3);assert.equal(shown,1);assert.equal(s.latest()!.status,'error');assert.equal(s.latest()!.error_uid,'1');assert.equal(s.progress(id).videos,0);assert.equal(s.nextVideos(id)?.user.uid,'1');assert.equal(s.snapshot().rows[0].works_count,20);
+test('持续空响应不跳过账号，等待期间可暂停并保留视频断点',async t=>{
+  const {store:s}=fixture(t);let calls=0,shown=0,fail=true,paused=false;
+  const c=new Collector(s,fake({videos:async()=>{calls++;if(fail)throw new CollectError('EMPTY','空响应');return {videos:[{id:'50',time:1780000000,pinned:false}],more:false,cursor:0,valid:true}},show:()=>{shown++}}),()=>{if(!paused&&c.state().retry?.attempt===3){paused=true;c.pause()}},async()=>{});
+  await c.start();await idle(c);const id=s.latest()!.id;assert.equal(calls,3);assert.equal(shown,0);assert.equal(s.latest()!.status,'paused');assert.equal(s.latest()!.error_uid,'1');assert.equal(s.progress(id).videos,0);assert.equal(s.nextVideos(id)?.user.uid,'1');assert.equal(s.snapshot().rows[0].works_count,20);assert.equal(c.countdown,0);
   s.reviewDelta('100',{opened:['1'],select:{ids:['2'],value:true}});fail=false;await c.resume();await idle(c);assert.equal(calls,5);assert.equal(s.latest()!.status,'completed');assert.deepEqual(s.getReview().opened,['1']);assert.deepEqual(s.getReview().selected,['2']);
 });
 test('首次请求遇验证码也能等待五秒后继续',async t=>{

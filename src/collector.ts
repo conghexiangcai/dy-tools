@@ -2,25 +2,35 @@ import {Store} from './store';
 import {Transport,CollectError,VideoPage,newestThree} from './transport';
 import {User,Run,makeRow,count} from './domain';
 const sleep=(ms:number)=>new Promise<void>(r=>setTimeout(r,ms));
+export const emptyRetrySeconds=(attempt:number)=>[30,60,120,300][Math.min(3,Math.max(0,attempt-1))];
 export class Collector {
   busy=false;private paused=false;private ownerUser:User|null=null;countdown=0;
+  private activeRunId:string|null=null;private expectedOwner='';
+  private retry:{attempt:number;seconds:number;code:string}|null=null;
   private pendingStart:{status:Run['status'];message:string}|null=null;
   private requestDurations:number[]=[];
-  constructor(public store:Store,public transport:Transport,public changed:()=>void,private delay=sleep){}
-  state(){const saved=this.store.latest();const run=this.pendingStart?{id:'pending-login',phase:'following',pages:0,...this.pendingStart}:saved;const progress=!this.pendingStart&&saved?this.store.progress(saved.id):{total:0,completed:0,videos:0};const average=this.requestDurations.length?this.requestDurations.reduce((a,b)=>a+b)/this.requestDurations.length:1600;const expected=Math.max(progress.total,saved?.total_hint||0);const remaining=run?.phase==='following'?Math.ceil(Math.max(0,expected-progress.total)/20)+2*expected:Math.max(0,progress.total-progress.completed)+Math.max(0,progress.total-progress.videos);const etaSeconds=this.busy&&run?.status==='running'&&!this.pendingStart?Math.ceil(remaining*average/1000):null;return {run,progress,busy:this.busy,countdown:this.countdown,etaSeconds};}
-  pause(){this.paused=true;if(this.pendingStart)this.pendingStart={status:'paused',message:'已暂停，点击继续开始更新'};else {const r=this.store.latest();if(r&&r.status!=='completed')this.store.update(r.id,{status:'paused',message:'已暂停，可从断点继续'});}this.changed();}
-  private checkPause(){if(this.paused)throw new CollectError('PAUSED','已暂停');}
+  constructor(public store:Store,public transport:Transport,public changed:()=>void,private delay=sleep,private tick:()=>void=changed){}
+  state(){const saved=this.store.latest();const run=this.pendingStart?{id:'pending-login',phase:'following',pages:0,...this.pendingStart}:saved;const progress=!this.pendingStart&&saved?this.store.progress(saved.id):{total:0,completed:0,videos:0};const average=this.requestDurations.length?this.requestDurations.reduce((a,b)=>a+b)/this.requestDurations.length:1600;const expected=Math.max(progress.total,saved?.total_hint||0);const remaining=run?.phase==='following'?Math.ceil(Math.max(0,expected-progress.total)/20)+2*expected:Math.max(0,progress.total-progress.completed)+Math.max(0,progress.total-progress.videos);const etaSeconds=this.busy&&run?.status==='running'&&!this.pendingStart?Math.ceil(remaining*average/1000):null;return {run,progress,busy:this.busy,countdown:this.countdown,etaSeconds,retry:this.retry};}
+  pause(){this.paused=true;if(this.pendingStart)this.pendingStart={status:'paused',message:'已暂停，点击继续开始更新'};else {const r=this.busy&&this.activeRunId?this.store.run(this.activeRunId):this.store.latest();if(r&&r.status!=='completed')this.store.update(r.id,{status:'paused',message:'已暂停，可从断点继续'});}this.changed();}
+  private checkPause(){if(this.paused)throw new CollectError('PAUSED','已暂停');if(this.expectedOwner&&this.store.owner()!==this.expectedOwner)throw new CollectError('ACCOUNT_CHANGED','登录账号已变化，原采集任务已暂停');}
+  private updateTask(status:Run['status'],message:string,target?:User){if(this.pendingStart)this.pendingStart={status,message};else if(this.activeRunId)this.store.update(this.activeRunId,{status,message,error_uid:target?.uid||null});}
+  private async waitRetry(attempt:number,code:string,target?:User,retryAfterSeconds?:number){
+    const seconds=Math.max(emptyRetrySeconds(attempt),Number.isFinite(retryAfterSeconds)?Math.ceil(retryAfterSeconds!):0);this.retry={attempt,seconds,code};this.updateTask('retry_wait',(code==='EMPTY'?'接口返回空数据':'接口暂时限制请求')+`，已保存断点；第 ${attempt} 次自动重试，可随时暂停`,target);
+    try{for(let left=seconds;left>0;left--){this.checkPause();this.countdown=left;this.tick();await this.delay(1000);this.checkPause()}
+      if(await this.transport.challenge(target,false))throw new CollectError('CAPTCHA','需要手动完成验证码');this.checkPause();this.updateTask('running','等待结束，正在核验登录并重试原请求',target);
+    }finally{this.countdown=0;this.retry=null;this.tick()}
+  }
   async start(){
-    if(this.busy)throw Error('已有采集任务正在运行');this.busy=true;this.paused=false;this.pendingStart={status:'running',message:'正在确认登录账号'};this.changed();
+    if(this.busy)throw Error('已有采集任务正在运行');this.busy=true;this.paused=false;this.ownerUser=null;this.expectedOwner='';this.activeRunId=null;this.pendingStart={status:'running',message:'正在确认登录账号'};this.changed();
     await this.beginNew();
   }
-  private async beginNew(){try{const owner=await this.request(()=>this.transport.owner());this.checkPause();this.ownerUser=owner;this.store.activate(owner.uid,owner.nickname);const run=this.store.createRun(owner.uid,count(owner.following_count)||0);this.pendingStart=null;this.changed();await this.delay(1000);void this.work(run.id);}catch(e:any){this.busy=false;this.pendingStart={status:e.code==='CAPTCHA'?'waiting_verification':e.code==='LOGIN'?'waiting_login':e.code==='PAUSED'?'paused':'error',message:e instanceof CollectError?e.message:'登录连接失败，请重试'};if(['CAPTCHA','LOGIN'].includes(e.code))this.transport.show();this.changed();}}
+  private async beginNew(){try{const owner=await this.request(()=>this.transport.owner());this.checkPause();this.ownerUser=owner;this.store.activate(owner.uid,owner.nickname);const run=this.store.createRun(owner.uid,count(owner.following_count)||0);this.activeRunId=run.id;this.expectedOwner=owner.uid;this.pendingStart=null;this.changed();await this.delay(1000);void this.work(run.id);}catch(e:any){this.busy=false;this.pendingStart={status:e.code==='CAPTCHA'?'waiting_verification':e.code==='LOGIN'?'waiting_login':e.code==='PAUSED'?'paused':'error',message:e instanceof CollectError?e.message:'登录连接失败，请重试'};if(['CAPTCHA','LOGIN'].includes(e.code))this.transport.show();this.changed();}}
   private async waitVerification(update:(message:string)=>void){update('验证后等待 5 秒');for(let i=5;i>0;i--){this.countdown=i;this.changed();await this.delay(1000);this.checkPause();}this.countdown=0;if(await this.transport.challenge())throw new CollectError('CAPTCHA','验证尚未完成，请继续操作抖音窗口');}
   async resume(verification=false){
     if(this.busy)throw Error('已有采集任务正在运行');
     if(this.pendingStart){this.busy=true;this.paused=false;try{if(verification)await this.waitVerification(message=>{this.pendingStart={status:'cooldown',message}});await this.beginNew();}catch(e:any){this.countdown=0;this.busy=false;this.pendingStart={status:e.code==='PAUSED'?'paused':'waiting_verification',message:e.message};this.transport.show();this.changed();}return;}
     const r=this.store.latest();if(!r||r.status==='completed')throw Error('没有未完成任务，请点击更新数据');
-    this.busy=true;this.paused=false;this.changed();
+    this.busy=true;this.paused=false;this.activeRunId=r.id;this.expectedOwner=r.owner_uid;this.ownerUser=null;this.changed();
     try{
       if(verification)await this.waitVerification(message=>this.store.update(r.id,{status:'cooldown',message}));
       const owner=await this.request(()=>this.transport.owner());this.checkPause();if(owner.uid!==r.owner_uid)throw new CollectError('ACCOUNT_CHANGED','登录账号已更换。请切回原账号继续，或点击更新数据创建新账号任务');
@@ -28,13 +38,17 @@ export class Collector {
     }catch(e){this.countdown=0;await this.block(r.id,e);this.busy=false;this.changed();}
   }
   private async request<T>(fn:()=>Promise<T>,target?:User):Promise<T>{
+    let emptyAttempts=0,networkAttempts=0,needsIdentity=false;
     for(let attempt=0;;attempt++){
-      this.checkPause();try{const started=Date.now();const result=await fn();this.requestDurations.push(Date.now()-started+1000);if(this.requestDurations.length>30)this.requestDurations.shift();return result}catch(e:any){
-        this.checkPause();if(e.code==='LOGIN'||e.code==='ACCOUNT_CHANGED')throw e;
-        if(await this.transport.challenge(target,attempt===0))throw new CollectError('CAPTCHA','需要手动完成验证码');
+      this.checkPause();try{if(needsIdentity&&this.ownerUser){const owner=await this.transport.owner();this.checkPause();if(owner.uid!==this.ownerUser.uid)throw new CollectError('ACCOUNT_CHANGED','登录账号已更换，原任务已暂停');if(this.activeRunId&&this.store.run(this.activeRunId)?.phase==='following'&&count(owner.following_count)!==null)this.store.update(this.activeRunId,{total_hint:owner.following_count});needsIdentity=false;await this.delay(1000);this.checkPause()}
+        const started=Date.now();const result=await fn();this.checkPause();this.requestDurations.push(Date.now()-started+1000);if(this.requestDurations.length>30)this.requestDurations.shift();if(emptyAttempts)this.updateTask('running','');return result}catch(e:any){
+        this.checkPause();if(['LOGIN','ACCOUNT_CHANGED','CAPTCHA','PAUSED'].includes(e.code))throw e;
+        if(await this.transport.challenge(target,attempt===0&&!['HTTP_429','RATE_LIMIT'].includes(e.code)))throw new CollectError('CAPTCHA','需要手动完成验证码');
+        this.checkPause();
         if(e.code==='SCHEMA')throw e;
-        if(!['EMPTY','NETWORK','TIMEOUT','HTTP_500','HTTP_502','HTTP_503','HTTP_504'].includes(e.code)||attempt>=2)throw e;
-        await this.delay(attempt===0?3000:10000);
+        if(['EMPTY','HTTP_429','RATE_LIMIT'].includes(e.code)){await this.waitRetry(++emptyAttempts,e.code,target,e.retryAfterSeconds);needsIdentity=true;continue}
+        if(!['NETWORK','TIMEOUT','HTTP_500','HTTP_502','HTTP_503','HTTP_504'].includes(e.code)||networkAttempts>=2)throw e;
+        await this.delay(networkAttempts++===0?3000:10000);
       }
     }
   }
@@ -43,7 +57,7 @@ export class Collector {
     try{
       let run=this.store.run(id)!;
       while(run.phase==='following'){
-        const page=await this.request(()=>this.transport.following(this.ownerUser!,run.offset,run.max_time));this.checkPause();
+        const page=await this.request(async()=>{const p=await this.transport.following(this.ownerUser!,run.offset,run.max_time),current=this.store.run(id)!;if(!p.users.length&&(p.more||current.total_hint>run.offset))throw new CollectError('EMPTY','关注分页返回空数据');return p});this.checkPause();
         const existing=new Set(this.store.members(id).map(u=>u.uid));
         if(page.more&&(page.min_time===run.max_time||page.users.every(u=>existing.has(u.uid))))throw new CollectError('SCHEMA','关注列表分页未推进，已保存断点');
         this.store.addPage(id,page.users,{offset:run.offset+page.users.length,max_time:page.min_time,pages:run.pages+1},!page.more);this.changed();run=this.store.run(id)!;await this.delay(1000);
@@ -74,6 +88,6 @@ export class Collector {
   private async block(id:string,e:any){
     if(e.code==='PAUSED'){this.store.update(id,{status:'paused',message:'已暂停，可从断点继续'});return;}
     this.store.update(id,{status:e.code==='CAPTCHA'?'waiting_verification':e.code==='LOGIN'?'waiting_login':'error',message:e instanceof CollectError?e.message:'采集异常，已保存断点；请点击继续重试'});
-    if(['CAPTCHA','LOGIN','ACCOUNT_CHANGED','EMPTY'].includes(e.code))this.transport.show();
+    if(['CAPTCHA','LOGIN','ACCOUNT_CHANGED'].includes(e.code))this.transport.show();
   }
 }

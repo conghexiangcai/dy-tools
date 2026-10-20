@@ -23,7 +23,7 @@ export class Store {
     this.groups=new GroupStore(this.db);this.tools=new ToolStore(this.db);
     if(!(this.db.prepare('PRAGMA table_info(profiles)').all() as any[]).some(c=>c.name==='videos_done'))this.db.exec('ALTER TABLE profiles ADD COLUMN videos_done INTEGER NOT NULL DEFAULT 0');
     this.db.exec("UPDATE runs SET phase='videos',status='paused',message='已有详情保留，点击继续补齐最新视频时间' WHERE status='completed' AND id!='seed-v3' AND id IN (SELECT active_run FROM accounts) AND EXISTS (SELECT 1 FROM profiles p WHERE p.run_id=runs.id AND p.done=1 AND p.videos_done=0)");
-    this.db.prepare("UPDATE runs SET status='paused',message='上次任务中断，点击继续恢复' WHERE status IN ('running','cooldown')").run();
+    this.db.prepare("UPDATE runs SET status='paused',message='上次任务中断，点击继续恢复' WHERE status IN ('running','cooldown','retry_wait')").run();
   }
   transaction<T>(fn:()=>T):T{this.db.exec('BEGIN IMMEDIATE');try{const r=fn();this.db.exec('COMMIT');return r;}catch(e){this.db.exec('ROLLBACK');throw e;}}
   close(){this.db.close();}
