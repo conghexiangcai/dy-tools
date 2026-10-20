@@ -6,7 +6,8 @@ fs.mkdirSync(out,{recursive:true});
 const input=path.join(out,'live-command.json'),output=path.join(out,'live-result.json');
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
- const app=await _electron.launch({executablePath:require('electron'),args:[root,'--login',...(process.argv.includes('--resume')?['--resume']:[])],timeout:45000});
+ const packaged=process.argv.includes('--packaged')?JSON.parse(fs.readFileSync(path.join(root,'release/latest.json'),'utf8')):null;
+ const app=await _electron.launch({executablePath:packaged?.executable||require('electron'),args:[...(packaged?[]:[root]),'--login',...(process.argv.includes('--resume')?['--resume']:[])],timeout:45000});
  let dashboard;for(let i=0;i<100;i++){dashboard=app.windows().find(p=>p.url()==='app://local/index.html');if(dashboard)break;await delay(100)}
  if(!dashboard)throw Error('主界面未启动');await dashboard.waitForSelector('#total');
  console.log('软件已打开，等待手动登录。');fs.writeFileSync(output,JSON.stringify({ready:true}));

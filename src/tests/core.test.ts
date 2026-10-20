@@ -110,6 +110,10 @@ test('视频阶段单独断点，旧详情不重取，私密/零作品不请求�
  await c.resume();await idle(c);assert.equal(s.latest()!.phase,'videos');assert.equal(s.latest()!.status,'error');assert.equal(calls,3);assert.equal(s.progress(r.id).videos,2);
  fail=false;await c.resume();await idle(c);assert.equal(calls,4);assert.equal(s.progress(r.id).videos,3);assert.equal(s.snapshot().rows[0].recent_videos_status,'empty');assert.equal(s.snapshot().rows[1].recent_videos_status,'private');assert.equal(s.snapshot().rows[2].recent_video_times?.length,1);
 });
+test('单个账号作品游标不前进时保存未知并继续其他账号',async t=>{
+ const {store:s}=fixture(t);const c=new Collector(s,fake({videos:async()=>({videos:[],more:true,cursor:0,valid:true})}),()=>{},async()=>{});
+ await c.start();await idle(c);assert.equal(s.latest()?.status,'completed');assert.equal(s.progress(s.latest()!.id).videos,2);assert.ok(s.snapshot().rows.every(r=>r.recent_videos_status==='conflict'&&r.recent_video_times?.length===0));
+});
 test('网络错误最多重试两次，不将失败写成零，继续可恢复',async t=>{
   const {store:s}=fixture(t);let attempts=0,fail=true;
   const c=new Collector(s,fake({profile:async u=>{attempts++;if(fail)throw new CollectError('TIMEOUT','请求超时');return profile(u)}}),()=>{},async()=>{});

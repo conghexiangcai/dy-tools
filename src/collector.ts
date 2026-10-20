@@ -58,14 +58,14 @@ export class Collector {
         target=next.user;this.store.update(id,{phase:'videos'});this.changed();
         if(next.row.works_status==='private'||next.row.works_status==='privacy_unknown'){this.store.saveVideos(id,target.uid,[],'private');this.changed();target=undefined;continue}
         if(next.row.works_count===0){this.store.saveVideos(id,target.uid,[],'empty');this.changed();target=undefined;continue}
-        let cursor=0,all:VideoPage['videos']=[],valid=true;
+        let cursor=0,all:VideoPage['videos']=[],valid=true,conflict=false;
         for(let pages=0;;pages++){
           const data=await this.request(()=>this.transport.videos(target!,cursor),target);this.checkPause();all.push(...data.videos);valid=valid&&data.valid;
           if(!valid||!data.more||new Set(all.filter(v=>!v.pinned).map(v=>v.id)).size>=3)break;
-          if(data.cursor===cursor||pages>=4)throw new CollectError('SCHEMA','作品列表分页未推进或无法确定最新发布时间');
+          if(data.cursor===cursor||pages>=4){valid=false;conflict=true;break;}
           cursor=data.cursor;await this.delay(1000);
         }
-        this.store.saveVideos(id,target.uid,valid?newestThree(all):[],!valid?'unknown':all.length?'verified':'unknown');this.changed();target=undefined;await this.delay(1000);
+        this.store.saveVideos(id,target.uid,valid?newestThree(all):[],conflict?'conflict':!valid?'unknown':all.length?'verified':'unknown');this.changed();target=undefined;await this.delay(1000);
       }
       this.store.update(id,{status:'completed',message:'采集完成，未知数量按原口径保留',error_uid:null});
     }catch(e){if(target)this.store.update(id,{error_uid:target.uid});await this.block(id,e);}finally{this.busy=false;this.changed();}
