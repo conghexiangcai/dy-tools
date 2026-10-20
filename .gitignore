@@ -1,0 +1,33 @@
+node_modules/
+dist/
+release/
+output/
+backups/
+*.log
+
+credentials.json
+mail-credentials.json
+*.bin
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.zip
+*.exe
+*.apk
+*.part
+.env
+.env.*
+!.env.example
+.signing/
+Cookies
+Cookies-journal
+Local Storage/
+Session Storage/
+Network/
+credentials*.json
+mail-credentials*.json
+!**/credentials.example.json
+!**/mail-credentials.example.json
+resources/seed.json
+resources/unfollow-history.json

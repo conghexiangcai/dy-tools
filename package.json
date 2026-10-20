@@ -1,0 +1,21 @@
+{
+  "name": "douyin-following-review",
+  "productName": "抖音关注清单",
+  "version": "1.0.0",
+  "private": true,
+  "description": "本地抖音关注清单与手动主页查看工具",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc && node scripts/assets.cjs",
+    "start": "npm run build && electron .",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "smoke": "node scripts/smoke.cjs",
+    "package": "npm run build && node scripts/package.cjs"
+  },
+  "devDependencies": {
+    "electron": "44.5.1",
+    "typescript": "7.0.2",
+    "@types/node": "24.19.0",
+    "playwright-core": "1.63.0"
+  }
+}
