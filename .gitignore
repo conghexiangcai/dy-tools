@@ -3,6 +3,7 @@ dist/
 release/
 output/
 backups/
+.tools/
 *.log
 
 credentials.json
